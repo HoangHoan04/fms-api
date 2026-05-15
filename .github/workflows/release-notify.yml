@@ -1,0 +1,43 @@
+name: Release Notification
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV_TAG=$(git tag --sort=-creatordate | sed -n '2p' || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            LOG=$(git log --oneline --no-decorate ${PREV_TAG}..HEAD 2>/dev/null | head -n30 || true)
+          else
+            LOG=$(git log --oneline --no-decorate -n 20 || true)
+          fi
+          echo "log<<EOF" >> $GITHUB_OUTPUT
+          echo "$LOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Notify Telegram - Release
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+          CHANGELOG: ${{ steps.changelog.outputs.log }}
+        run: |
+          REPO_NAME=$(echo '${{ github.repository }}' | cut -d/ -f2)
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+          -d parse_mode="HTML" \
+          -d text="<b>NEW RELEASE</b>
+
+          <b>Dự án:</b>     ${REPO_NAME}
+          <b>Tag:</b>      ${TAG_NAME}
+          <b>Changelog:</b>
+          <code>${CHANGELOG}</code>"

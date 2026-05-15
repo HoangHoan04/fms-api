@@ -1,0 +1,41 @@
+name: DB Migration Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/migrations/**'
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: List migration files
+        id: migrations
+        run: |
+          FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }}...${{ github.sha }} -- 'src/migrations/' 2>/dev/null)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Notify Telegram - DB Migration
+        env:
+          MIGRATION_FILES: ${{ steps.migrations.outputs.files }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          REPO_NAME=$(echo '${{ github.repository }}' | cut -d/ -f2)
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+          -d parse_mode="HTML" \
+          -d text="<b>DB MIGRATION DETECTED</b>
+
+          <b>Dự án:</b>     ${REPO_NAME}
+          <b>Tác giả:</b>   ${PR_AUTHOR}
+          <b>Files:</b>
+          <code>${MIGRATION_FILES}</code>
+          <b>Hành động:</b> Kiểm tra migration trước khi merge!"

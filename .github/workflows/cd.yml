@@ -1,0 +1,130 @@
+name: CD Pipeline
+
+on:
+  workflow_run:
+    workflows: ['CI Pipeline']
+    types: [completed]
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Notify Telegram - In Progress
+        env:
+          COMMIT_MSG: ${{ github.event.workflow_run.head_commit.message || '' }}
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha || '' }}
+        run: |
+          MSG=$(echo "${COMMIT_MSG}" | head -n1 | tr -d '\r' | sed 's/[\"`$]//g')
+          SHA_SHORT=$(echo ${COMMIT_SHA} | cut -c1-7)
+          REPO_NAME=$(echo '${{ github.repository }}' | cut -d/ -f2)
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+          -d parse_mode="HTML" \
+          -d text="<b>CD DEPLOY IN PROGRESS</b>
+
+          <b>Dự án:</b>     ${REPO_NAME}
+          <b>Nhân viên:</b> ${{ github.event.workflow_run.actor.login }}
+          <b>Nhánh:</b>     ${{ github.event.workflow_run.head_branch }} (<code>${SHA_SHORT}</code>)
+          <b>Image:</b>     ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          <b>Commit:</b>    ${MSG}
+          <b>Tiến trình:</b> Build and deloy ${{ github.event.workflow_run.head_branch }} — in_progress"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Log in to Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Prepare commit info
+        id: info
+        if: always()
+        run: |
+          echo "sha_short=$(echo '${{ github.event.workflow_run.head_sha }}' | cut -c1-7)" >> $GITHUB_OUTPUT
+          echo "msg_first=$(git log -1 --format=%s | tr -d '\r' | sed 's/[\"`$]//g')" >> $GITHUB_OUTPUT
+          echo "author=${{ github.event.workflow_run.actor.login }}" >> $GITHUB_OUTPUT
+          echo "branch=${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT
+          echo "repo_name=$(echo '${{ github.repository }}' | cut -d/ -f2)" >> $GITHUB_OUTPUT
+
+      - name: Notify Telegram - Success
+        if: success()
+        env:
+          SHA: ${{ steps.info.outputs.sha_short }}
+          MSG: ${{ steps.info.outputs.msg_first }}
+          AUTHOR: ${{ steps.info.outputs.author }}
+          BRANCH: ${{ steps.info.outputs.branch }}
+          REPO: ${{ steps.info.outputs.repo_name }}
+          DEPLOY_URL: ${{ secrets.DEPLOY_URL || '' }}
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+          -d parse_mode="HTML" \
+          -d text="<b>CD DEPLOY SUCCESS</b>
+
+          <b>Dự án:</b>     ${REPO}
+          <b>Nhân viên:</b> ${AUTHOR}
+          <b>Nhánh:</b>     ${BRANCH} (<code>${SHA}</code>)
+          <b>Image:</b>     ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          <b>Commit:</b>    ${MSG}
+          <b>URL:</b>       ${DEPLOY_URL}
+          <b>Tiến trình:</b> Build and deloy ${BRANCH} — success"
+
+      - name: Notify Telegram - Failure
+        if: failure()
+        env:
+          SHA: ${{ steps.info.outputs.sha_short }}
+          MSG: ${{ steps.info.outputs.msg_first }}
+          AUTHOR: ${{ steps.info.outputs.author }}
+          BRANCH: ${{ steps.info.outputs.branch }}
+          REPO: ${{ steps.info.outputs.repo_name }}
+          DEPLOY_URL: ${{ secrets.DEPLOY_URL || '' }}
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+          -d parse_mode="HTML" \
+          -d text="<b>CD DEPLOY FAILED</b>
+
+          <b>Dự án:</b>     ${REPO}
+          <b>Nhân viên:</b> ${AUTHOR}
+          <b>Nhánh:</b>     ${BRANCH} (<code>${SHA}</code>)
+          <b>Image:</b>     ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          <b>Commit:</b>    ${MSG}
+          <b>URL:</b>       ${DEPLOY_URL}
+          <b>Tiến trình:</b> Build and deloy ${BRANCH} — failure"

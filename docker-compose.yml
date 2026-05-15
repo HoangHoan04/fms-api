@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fms_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: fms-dev
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - api_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: fms_redis
+    restart: always
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - api_net
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fms_api
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - PORT=4300
+      - DATABASE_URL=postgresql://postgres:root@postgres:5432/fms-dev
+      - TYPEORM_HOST=postgres
+      - TYPEORM_PORT=5432
+      - TYPEORM_USERNAME=postgres
+      - TYPEORM_PASSWORD=root
+      - TYPEORM_DATABASE=fms-dev
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - '4300:4300'
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - api_net
+
+networks:
+  api_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local

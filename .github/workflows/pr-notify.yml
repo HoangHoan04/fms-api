@@ -1,0 +1,28 @@
+name: PR Notification
+
+on:
+  pull_request:
+    types: [opened, reopened]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Telegram - New PR
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_BODY: ${{ github.event.pull_request.body || 'No description' }}
+        run: |
+          REPO_NAME=$(echo '${{ github.repository }}' | cut -d/ -f2)
+          DESC=$(echo "${PR_BODY}" | head -n5 | tr -d '\r' | sed 's/[\"`$]//g')
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+          -d parse_mode="HTML" \
+          -d text="<b>NEW PULL REQUEST</b>
+
+          <b>Dự án:</b>     ${REPO_NAME}
+          <b>Tác giả:</b>   ${PR_AUTHOR}
+          <b>Tiêu đề:</b>   ${PR_TITLE}
+          <b>Mô tả:</b>     ${DESC}"

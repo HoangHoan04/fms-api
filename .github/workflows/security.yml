@@ -1,0 +1,60 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  trivy-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@v0.35.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+        continue-on-error: true
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+        continue-on-error: true
+
+      - name: Count vulnerabilities
+        id: count
+        run: |
+          CRITICAL=0
+          HIGH=0
+          if [ -f trivy-results.sarif ]; then
+            CRITICAL=$(grep -c '"severity": "critical"' trivy-results.sarif || echo 0)
+            HIGH=$(grep -c '"severity": "high"' trivy-results.sarif || echo 0)
+          fi
+          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+
+      - name: Notify Telegram - Security Result
+        if: github.event_name == 'push'
+        env:
+          CRITICAL: ${{ steps.count.outputs.critical }}
+          HIGH: ${{ steps.count.outputs.high }}
+        run: |
+          REPO_NAME=$(echo '${{ github.repository }}' | cut -d/ -f2)
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+          -d parse_mode="HTML" \
+          -d text="<b>SECURITY SCAN COMPLETE</b>
+
+          <b>Dự án:</b>     ${REPO_NAME}
+          <b>CRITICAL:</b>  ${CRITICAL}
+          <b>HIGH:</b>      ${HIGH}"
