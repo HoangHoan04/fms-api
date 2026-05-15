@@ -1,9 +1,13 @@
+import { coreHelper, transformKeys } from '@/helpers';
 import { enumData } from '@/common/contanst/enumData';
 import { IdDto, PaginationDto, UserDto } from '@/dto';
 import { RoleEntity } from '@/entities/users';
-import { transformKeys } from '@/helpers';
 import { RoleRepository } from '@/repositories/user.repository';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { FindOptionsWhere, ILike } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { ActionLogService } from '../action-log/action-log.service';
@@ -32,10 +36,7 @@ export class RoleService {
       order: { createdAt: 'DESC' },
     });
 
-    return {
-      data: roles,
-      total,
-    };
+    return { data: roles, total };
   }
 
   async selectbox() {
@@ -50,17 +51,18 @@ export class RoleService {
     const role = await this.repo.findOne({
       where: { id: data.id, isDeleted: false },
       relations: {
-        rolePermissions: {
-          permission: true,
-        },
+        rolePermissions: { permission: true },
+        userRoles: true,
       },
     });
     if (!role) throw new NotFoundException('Không tìm thấy vai trò');
 
-    const result = transformKeys(role);
-
     return {
-      data: result,
+      data: transformKeys({
+        ...role,
+        totalPermissions: role.rolePermissions?.length || 0,
+        totalUsers: role.userRoles?.length || 0,
+      }),
       message: 'Lấy thông tin vai trò thành công',
     };
   }
@@ -70,7 +72,9 @@ export class RoleService {
       where: { code: data.code },
       withDeleted: true,
     });
-    if (existing) throw new Error('Mã vai trò đã tồn tại');
+    if (existing) {
+      throw new BadRequestException('Mã vai trò đã tồn tại');
+    }
 
     const role = new RoleEntity();
     role.id = uuidv4();
@@ -79,26 +83,24 @@ export class RoleService {
     role.description = data.description;
     role.isActive = true;
     role.createdBy = user.id;
-    role.createdAt = new Date();
+    role.createdAt = coreHelper.newDateTZ();
 
     await this.repo.save(role);
 
     const actionLogDto: ActionLogCreateDto = {
-      functionId: role.id,
-      functionType: 'ROLE',
-      type: enumData.ActionLogType.CREATE.code,
+      entityId: role.id,
+      entityName: 'ROLE',
+      actionType: enumData.ActionLogType.CREATE.code,
       createdById: user.id,
       createdByCode: user.username,
       createdByName: user.username,
-      description: `Tạo mới vai trò: ${role.code}`,
-      oldData: '{}',
-      newData: JSON.stringify(role),
+      createdNote: `Tạo mới vai trò: ${role.code}`,
+      oldValue: '{}',
+      newValue: JSON.stringify(role),
     };
     await this.actionLogService.create(actionLogDto);
 
-    return {
-      message: 'Tạo mới vai trò thành công',
-    };
+    return { message: 'Tạo mới vai trò thành công' };
   }
 
   async update(updateDto: UpdateRoleDto, user: UserDto) {
@@ -110,100 +112,94 @@ export class RoleService {
         where: { code: updateDto.code },
         withDeleted: true,
       });
-      if (existing) throw new Error('Mã vai trò đã tồn tại');
+      if (existing) {
+        throw new BadRequestException('Mã vai trò đã tồn tại');
+      }
     }
 
-    const updateRole = {
+    const updateData = {
       code: updateDto.code,
       name: updateDto.name,
-      description: updateDto.description,
+      createdNote: updateDto.description,
       updatedBy: user.id,
-      updatedAt: new Date(),
+      updatedAt: coreHelper.newDateTZ(),
     };
 
-    await this.repo.update(role.id, updateRole);
+    await this.repo.update(role.id, updateData);
+
+    const updatedRole = await this.repo.findOne({
+      where: { id: role.id },
+      relations: { rolePermissions: { permission: true } },
+    });
 
     const actionLogDto: ActionLogCreateDto = {
-      functionId: role.id,
-      functionType: 'ROLE',
-      type: enumData.ActionLogType.UPDATE.code,
+      entityId: role.id,
+      entityName: 'ROLE',
+      actionType: enumData.ActionLogType.UPDATE.code,
       createdById: user.id,
       createdByCode: user.username,
       createdByName: user.username,
-      description: `Cập nhật vai trò: ${role.code}`,
-      oldData: JSON.stringify(role),
-      newData: JSON.stringify(updateRole),
+      createdNote: `Cập nhật vai trò: ${role.code}`,
+      oldValue: JSON.stringify(role),
+      newValue: JSON.stringify(updateData),
     };
     await this.actionLogService.create(actionLogDto);
 
     return {
       message: 'Cập nhật vai trò thành công',
+      data: transformKeys(updatedRole),
     };
   }
 
   async deactivate(user: UserDto, id: string) {
     const role = await this.repo.findOne({ where: { id } });
-    if (!role) {
-      throw new NotFoundException('Không tìm thấy vai trò');
-    }
+    if (!role) throw new NotFoundException('Không tìm thấy vai trò');
 
     await this.repo.update(id, {
       isActive: false,
       updatedBy: user.id,
-      updatedAt: new Date(),
+      updatedAt: coreHelper.newDateTZ(),
     });
 
     const actionLogDto: ActionLogCreateDto = {
-      functionId: role.id,
-      functionType: 'ROLE',
-      type: enumData.ActionLogType.DEACTIVATE.code,
+      entityId: role.id,
+      entityName: 'ROLE',
+      actionType: enumData.ActionLogType.DEACTIVATE.code,
       createdById: user.id,
       createdByCode: user.username,
       createdByName: user.username,
-      description: `Ngừng hoạt động vai trò với code: ${role.code}`,
-      oldData: JSON.stringify(role),
-      newData: JSON.stringify({
-        ...role,
-        isActive: false,
-      }),
+      createdNote: `Ngừng hoạt động vai trò: ${role.code}`,
+      oldValue: JSON.stringify(role),
+      newValue: JSON.stringify({ ...role, isActive: false }),
     };
     await this.actionLogService.create(actionLogDto);
 
-    return {
-      message: 'Ngừng hoạt động vai trò thành công',
-    };
+    return { message: 'Ngừng hoạt động vai trò thành công' };
   }
 
   async activate(user: UserDto, id: string) {
     const role = await this.repo.findOne({ where: { id } });
-    if (!role) {
-      throw new NotFoundException('Không tìm thấy vai trò');
-    }
+    if (!role) throw new NotFoundException('Không tìm thấy vai trò');
 
     await this.repo.update(id, {
       isActive: true,
       updatedBy: user.id,
-      updatedAt: new Date(),
+      updatedAt: coreHelper.newDateTZ(),
     });
 
     const actionLogDto: ActionLogCreateDto = {
-      functionId: role.id,
-      functionType: 'ROLE',
-      type: enumData.ActionLogType.ACTIVATE.code,
+      entityId: role.id,
+      entityName: 'ROLE',
+      actionType: enumData.ActionLogType.ACTIVATE.code,
       createdById: user.id,
       createdByCode: user.code,
       createdByName: user.username,
-      description: `Kích hoạt vai trò với code: ${role.code}`,
-      oldData: JSON.stringify(role),
-      newData: JSON.stringify({
-        ...role,
-        isActive: true,
-      }),
+      createdNote: `Kích hoạt vai trò: ${role.code}`,
+      oldValue: JSON.stringify(role),
+      newValue: JSON.stringify({ ...role, isActive: true }),
     };
-
     await this.actionLogService.create(actionLogDto);
-    return {
-      message: 'Kích hoạt vai trò thành công',
-    };
+
+    return { message: 'Kích hoạt vai trò thành công' };
   }
 }

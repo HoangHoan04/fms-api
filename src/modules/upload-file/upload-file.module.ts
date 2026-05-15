@@ -1,14 +1,11 @@
-import { ChildModule } from '@/common/decorators/module.decorator';
-import { MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MulterModule } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { PREFIX_MODULE } from '../config-module';
 import { UploadFileController } from './upload-file.controller';
 import { UploadFileService } from './upload-file.service';
 
-@ChildModule({
-  prefix: PREFIX_MODULE.upload,
+@Module({
   controllers: [UploadFileController],
   imports: [
     ConfigModule,

@@ -1,5 +1,5 @@
 import {
-  FileArchivalRepository,
+  MemberBankAccountRepository,
   MemberRepository,
   UserRepository,
 } from '@/repositories';
@@ -7,7 +7,7 @@ import { TypeOrmExModule } from '@/typeorm';
 import { Module } from '@nestjs/common';
 import { ActionLogModule } from '../action-log/action-log.module';
 import { FileArchivalModule } from '../file-archival/file-archival.module';
-import { MemberController } from './controllers/student-admin.controller';
+import { MemberController } from './member.controller';
 import { MemberService } from './member.service';
 
 @Module({
@@ -15,7 +15,7 @@ import { MemberService } from './member.service';
     TypeOrmExModule.forCustomRepository([
       MemberRepository,
       UserRepository,
-      FileArchivalRepository,
+      MemberBankAccountRepository,
     ]),
     FileArchivalModule,
     ActionLogModule,

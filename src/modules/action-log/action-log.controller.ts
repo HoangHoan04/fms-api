@@ -13,10 +13,17 @@ import { ActionLogService } from './action-log.service';
 export class ActionLogController {
   constructor(private readonly service: ActionLogService) {}
 
-  @ApiOperation({ summary: 'Hàm phân trang' })
+  @ApiOperation({ summary: 'Phân trang action log' })
   @RequirePermissions(['ACTION_LOG:VIEW_LIST'])
   @Post('pagination')
   public async pagination(@Body() data: PaginationDto) {
     return this.service.pagination(data);
+  }
+
+  @ApiOperation({ summary: 'Chi tiết action log' })
+  @RequirePermissions(['ACTION_LOG:VIEW_DETAIL'])
+  @Post('find-by-id')
+  public async findById(@Body() data: { id: string }) {
+    return this.service.findById(data.id);
   }
 }

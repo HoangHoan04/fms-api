@@ -1,56 +1,56 @@
 import { FileDto } from '@/dto';
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsNotEmpty,
+  IsOptional,
+  ValidateNested,
+} from 'class-validator';
+import { CreateMemberBankAccountDto } from './create-member-bank-account.dto';
 
 export class CreateMemberDto {
-  @ApiProperty({ description: 'Họ và tên thành viên' })
-  @IsString()
+  @ApiProperty({ description: 'Họ tên đầy đủ của thành viên' })
   @IsNotEmpty()
-  @MaxLength(100)
   fullName: string;
 
-  @ApiProperty({ description: 'Số điện thoại thành viên' })
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(20)
-  phone: string;
-
-  @ApiProperty({ description: 'Giới tính thành viên' })
+  @ApiPropertyOptional({
+    description: 'Tên gọi ngắn hoặc biệt danh của thành viên',
+  })
   @IsOptional()
-  @IsString()
-  gender?: string;
+  shortName?: string;
 
-  @ApiProperty({ description: 'Email thành viên' })
-  @IsString()
-  @MaxLength(100)
+  @ApiProperty({ description: 'Email liên hệ của thành viên' })
   @IsNotEmpty()
   email: string;
 
-  @ApiProperty({ description: 'Ngày sinh' })
+  @ApiProperty({ description: 'Số điện thoại liên hệ của thành viên' })
   @IsNotEmpty()
-  birthday: Date;
+  phone: string;
 
-  @ApiProperty({ description: 'Nghề nghiệp' })
+  @ApiPropertyOptional({ description: 'Giới tính của thành viên' })
   @IsOptional()
-  @IsString()
-  occupation?: string;
+  gender?: string;
 
-  @ApiProperty({ description: 'Trường học' })
+  @ApiPropertyOptional({ description: 'Ngày sinh của thành viên' })
   @IsOptional()
-  @IsString()
-  school?: string;
+  birthday?: Date;
 
-  @ApiProperty({ description: 'ID chứng chỉ mục tiêu' })
+  @ApiPropertyOptional({ description: 'Ghi chú thêm về thành viên' })
   @IsOptional()
-  @IsString()
-  targetCertId?: string;
+  description?: string;
 
-  @ApiProperty({ description: 'Điểm mục tiêu' })
+  @ApiPropertyOptional({
+    description: 'Danh sách tài khoản ngân hàng',
+    type: [CreateMemberBankAccountDto],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateMemberBankAccountDto)
   @IsOptional()
-  @IsString()
-  targetScore?: string;
+  bankAccounts?: CreateMemberBankAccountDto[];
 
-  @ApiProperty({ description: 'URL avatar của thành viên' })
+  @ApiPropertyOptional({ description: 'URL avatar của thành viên' })
   @IsOptional()
   avatar?: FileDto[];
 }

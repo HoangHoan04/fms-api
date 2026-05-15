@@ -202,19 +202,27 @@ class CoreHelper {
   };
 
   normalizePhoneNumber(phone: string): string {
-    // Nếu bắt đầu bằng 0 thì thay bằng 84
-    if (phone.startsWith('0')) {
-      return '84' + phone.slice(1);
-    }
-    // Nếu đã có 84 thì giữ nguyên
-    if (phone.startsWith('84')) {
-      return phone;
-    }
+    // Nếu bắt đầu bằng +84 thì thay bằng 0
     if (phone.startsWith('+84')) {
+      return '0' + phone.slice(3);
+    }
+    // Nếu bắt đầu bằng 84 thì thay bằng 0
+    if (phone.startsWith('84') && phone.length > 2) {
+      return '0' + phone.slice(2);
+    }
+    // Nếu đã có 0 ở đầu thì giữ nguyên
+    if (phone.startsWith('0')) {
       return phone;
     }
-    // Nếu không có 0 hoặc 84 ở đầu thì thêm 84 vào
-    return '84' + phone;
+    // Mặc định thêm 0 vào đầu
+    return '0' + phone;
+  }
+
+  formatCurrency(amount: number): string {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND',
+    }).format(amount);
   }
 }
 

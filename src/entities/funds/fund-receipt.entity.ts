@@ -1,4 +1,3 @@
-import { ApiProperty } from '@nestjs/swagger';
 import {
   Column,
   Entity,
@@ -8,12 +7,12 @@ import {
   OneToMany,
 } from 'typeorm';
 import { BaseEntity } from '../base.entity';
+import { FileArchivalEntity } from '../file-archival.entity';
+import { EmployeeEntity } from '../users/employee.entity';
+import { DisbursementEntity } from './disbursement.entity';
 import { FundCycleEntity } from './fund-cycle.entity';
 import { FundMemberEntity } from './fund-member.entity';
-import { EmployeeEntity } from '../users/employee.entity';
-import { FundReceiptDocumentEntity } from './fund-receipt-document.entity';
 import { FundReceiptApprovalEntity } from './fund-receipt-approval.entity';
-import { DisbursementEntity } from './disbursement.entity';
 
 /** Đơn đăng ký nhận tiền từ quỹ trong một chu kỳ */
 @Entity('fund-receipts')
@@ -93,8 +92,8 @@ export class FundReceiptEntity extends BaseEntity {
   bankAccountName?: string;
 
   // Relations
-  @OneToMany(() => FundReceiptDocumentEntity, (frd) => frd.receipt)
-  documents: FundReceiptDocumentEntity[];
+  @OneToMany(() => FileArchivalEntity, (p) => p.fundReceipt)
+  documents: Promise<FileArchivalEntity[]>;
 
   @OneToMany(() => FundReceiptApprovalEntity, (fra) => fra.receipt)
   approvals: FundReceiptApprovalEntity[];

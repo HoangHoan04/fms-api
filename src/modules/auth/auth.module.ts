@@ -6,6 +6,7 @@ import { PassportModule } from '@nestjs/passport';
 
 import {
   FileArchivalRepository,
+  LoginLogRepository,
   MemberRepository,
   PermissionRepository,
   RolePermissionRepository,
@@ -18,6 +19,7 @@ import { TypeOrmExModule } from '@/typeorm';
 import { EmailModule } from '../email/email.module';
 import { FileArchivalModule } from '../file-archival/file-archival.module';
 import { NotifyModule } from '../notify/notify.module';
+import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 
@@ -38,6 +40,7 @@ import { JwtStrategy } from './jwt.strategy';
       UserRepository,
       MemberRepository,
       FileArchivalRepository,
+      LoginLogRepository,
       VerifyOtpRepository,
       PermissionRepository,
       RolePermissionRepository,
@@ -48,7 +51,7 @@ import { JwtStrategy } from './jwt.strategy';
     EmailModule,
     NotifyModule,
   ],
-  controllers: [],
+  controllers: [AuthController],
   providers: [AuthService, JwtStrategy, OtpService],
   exports: [AuthService, JwtStrategy, PassportModule],
 })

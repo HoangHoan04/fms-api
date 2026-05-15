@@ -4,15 +4,12 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client } from '@aws-sdk/client-s3';
-import { Upload } from '@aws-sdk/lib-storage';
 import {
   UploadApiOptions,
   UploadApiResponse,
   v2 as cloudinary,
 } from 'cloudinary';
 import { randomBytes } from 'crypto';
-import { Readable } from 'stream';
 
 const IMAGE_MIMES = [
   'image/jpeg',
@@ -45,9 +42,6 @@ const DOCUMENT_MIMES = [
 
 @Injectable()
 export class UploadFileService {
-  private readonly r2Client: S3Client;
-  private readonly r2Bucket: string;
-  private readonly r2PublicUrl: string;
   private readonly catboxApiUrl = 'https://catbox.moe/user/api.php';
   private readonly catboxUserhash: string;
 
@@ -59,21 +53,6 @@ export class UploadFileService {
       cloud_name: this.configService.get<string>('CLOUDINARY_CLOUD_NAME'),
       api_key: this.configService.get<string>('CLOUDINARY_API_KEY'),
       api_secret: this.configService.get<string>('CLOUDINARY_API_SECRET'),
-    });
-
-    const endpoint = this.configService.get<string>('R2_ENDPOINT') || '';
-    this.r2Bucket = this.configService.get<string>('R2_BUCKET') || 'fms';
-    this.r2PublicUrl = this.configService.get<string>('R2_PUBLIC_URL') || '';
-
-    this.r2Client = new S3Client({
-      region: 'auto',
-      endpoint,
-      credentials: {
-        accessKeyId: this.configService.get<string>('R2_ACCESS_KEY_ID') || '',
-        secretAccessKey:
-          this.configService.get<string>('R2_SECRET_ACCESS_KEY') || '',
-      },
-      forcePathStyle: true,
     });
   }
 
@@ -124,7 +103,7 @@ export class UploadFileService {
     file: Express.Multer.File,
     folder?: string,
   ): Promise<{ fileName: string; fileUrl: string }> {
-    const folderName = folder || 'fms-images';
+    const folderName = folder || 'fms-files';
     const fileId = this.generateFileId();
     const ext = this.getExtension(file.mimetype);
 
@@ -144,39 +123,6 @@ export class UploadFileService {
     } catch (err) {
       throw new InternalServerErrorException(
         `Upload Cloudinary thất bại: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  }
-
-  private async uploadToR2(
-    file: Express.Multer.File,
-    folder?: string,
-  ): Promise<{ fileName: string; fileUrl: string }> {
-    const fileId = this.generateFileId();
-    const ext = this.getExtension(file.mimetype);
-    const key = folder ? `${folder}/${fileId}.${ext}` : `${fileId}.${ext}`;
-
-    try {
-      const parallelUpload = new Upload({
-        client: this.r2Client,
-        params: {
-          Bucket: this.r2Bucket,
-          Key: key,
-          Body: Readable.from(file.buffer),
-          ContentType: file.mimetype,
-        },
-        queueSize: 4,
-        partSize: 5 * 1024 * 1024,
-      });
-
-      await parallelUpload.done();
-      return {
-        fileName: `${fileId}.${ext}`,
-        fileUrl: `${this.r2PublicUrl}/${key}`,
-      };
-    } catch (err) {
-      throw new InternalServerErrorException(
-        `Upload R2 thất bại: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }
@@ -263,20 +209,18 @@ export class UploadFileService {
 
   async uploadAudio(
     file: Express.Multer.File,
-    folder?: string,
   ): Promise<{ fileName: string; fileUrl: string; storage: string }> {
     if (!file) throw new BadRequestException('File is required');
-    const result = await this.uploadToR2(file, folder || 'audio');
-    return { ...result, storage: 'r2' };
+    const result = await this.uploadToCloudinary(file, 'fms-audio');
+    return { ...result, storage: 'cloudinary' };
   }
 
   async uploadDocument(
     file: Express.Multer.File,
-    folder?: string,
   ): Promise<{ fileName: string; fileUrl: string; storage: string }> {
     if (!file) throw new BadRequestException('File is required');
-    const result = await this.uploadToR2(file, folder || 'documents');
-    return { ...result, storage: 'r2' };
+    const result = await this.uploadToCloudinary(file, 'fms-documents');
+    return { ...result, storage: 'cloudinary' };
   }
 
   async uploadSingle(

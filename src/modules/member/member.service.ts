@@ -1,15 +1,10 @@
 import { enumData } from '@/common/contanst/enumData';
 import { IdDto, PaginationDto, UserDto } from '@/dto';
-import { MemberEntity, UserEntity } from '@/entities/users';
+import { MemberBankAccountEntity, MemberEntity, UserEntity } from '@/entities';
 import { transformKeys } from '@/helpers';
 import {
-  FileArchivalRepository,
-  MemberAccessRightRepository,
-  MemberAnswerRepository,
-  MemberCertStatRepository,
+  MemberBankAccountRepository,
   MemberRepository,
-  MemberSkillStatRepository,
-  MemberTopicStatRepository,
   UserRepository,
 } from '@/repositories';
 import {
@@ -22,27 +17,22 @@ import { FindOptionsWhere, ILike, In } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { ActionLogService } from '../action-log/action-log.service';
 import { ActionLogCreateDto } from '../action-log/dto';
-import { FileArchivalCreateDto } from '../file-archival/dto';
 import { FileArchivalService } from '../file-archival/file-archival.service';
+import { CreateMemberDto, UpdateMemberAvatarDto, UpdateMemberDto } from './dto';
 
 @Injectable()
 export class MemberService {
   constructor(
     private readonly repo: MemberRepository,
     private readonly userRepo: UserRepository,
+    private readonly bankAccountRepo: MemberBankAccountRepository,
     private readonly fileArchivalService: FileArchivalService,
     private readonly actionLogService: ActionLogService,
-    private readonly fileArchivalRepo: FileArchivalRepository,
-    private readonly accessRightRepo: MemberAccessRightRepository,
-    private readonly answerRepo: MemberAnswerRepository,
-    private readonly certStatRepo: MemberCertStatRepository,
-    private readonly skillStatRepo: MemberSkillStatRepository,
-    private readonly topicStatRepo: MemberTopicStatRepository,
   ) {}
 
   private genCodeMember() {
     const generate = customAlphabet('0123456789', 5);
-    return `HV-${generate()}`;
+    return `A3-${generate()}`;
   }
 
   async findById(data: IdDto) {
@@ -51,6 +41,7 @@ export class MemberService {
       relations: {
         avatar: true,
         user: true,
+        bankAccounts: { qrCode: true },
       },
     });
 
@@ -60,10 +51,8 @@ export class MemberService {
     const userEntity = result.user;
     let safeUser: any = null;
     if (userEntity) {
-      const tempUser = { ...userEntity };
-      delete tempUser.password;
-      delete tempUser.refreshToken;
-      safeUser = tempUser;
+      const { password, refreshToken, ...safeFields } = userEntity;
+      safeUser = safeFields;
     }
 
     const avatarList = await result.avatar;
@@ -76,9 +65,26 @@ export class MemberService {
           }))
         : [];
 
+    const bankAccounts = await Promise.all(
+      (result.bankAccounts || []).map(async (acc) => {
+        const qrCodeFiles = await acc.qrCode;
+        const firstQr = qrCodeFiles?.[0];
+        return {
+          id: acc.id,
+          bankName: acc.bankName,
+          bankAccountNo: acc.bankAccountNo,
+          bankAccountName: acc.bankAccountName,
+          qrCode: firstQr
+            ? { fileName: firstQr.fileName, fileUrl: firstQr.fileUrl }
+            : null,
+        };
+      }),
+    );
+
     const finalData = {
       ...result,
       avatar: avatarArray,
+      bankAccounts,
       user: safeUser,
     };
 
@@ -108,6 +114,8 @@ export class MemberService {
     if (data.where.code) whereCon.code = ILike(`%${data.where.code}%`);
     if (data.where.fullName)
       whereCon.fullName = ILike(`%${data.where.fullName}%`);
+    if (data.where.shortName)
+      whereCon.shortName = ILike(`%${data.where.shortName}%`);
     if (data.where.phone) whereCon.phone = ILike(`%${data.where.phone}%`);
     if ([true, false].includes(data.where.isDeleted))
       whereCon.isDeleted = data.where.isDeleted;
@@ -139,14 +147,12 @@ export class MemberService {
     member.id = uuidv4();
     member.code = this.genCodeMember();
     member.fullName = createDto.fullName;
+    member.shortName = createDto.shortName;
     member.phone = createDto.phone;
     member.gender = createDto.gender;
     member.email = createDto.email;
     member.birthday = createDto.birthday;
-    member.occupation = createDto.occupation;
-    member.school = createDto.school;
-    member.targetCertId = createDto.targetCertId;
-    member.targetScore = createDto.targetScore;
+    member.description = createDto.description;
     member.createdBy = user.id;
     member.createdAt = new Date();
 
@@ -156,16 +162,39 @@ export class MemberService {
       ? createDto.avatar[0]
       : createDto.avatar;
     if (avatarData?.fileUrl && avatarData?.fileName) {
-      const fileArchival: FileArchivalCreateDto = {
+      await this.fileArchivalService.create({
         fileUrl: avatarData.fileUrl,
         fileName: avatarData.fileName,
-        fileType: 'STUDENT_AVATAR',
+        fileType: 'MEMBER_AVATAR',
+        memberId: member.id,
         createdBy: user.id,
-        createdAt: new Date().toISOString(),
-        fileRelationName: 'memberId',
-        fileRelationId: member.id,
-      };
-      await this.fileArchivalService.create(fileArchival);
+      });
+    }
+
+    if (createDto.bankAccounts?.length) {
+      for (const bankAcc of createDto.bankAccounts) {
+        const bankAccount = new MemberBankAccountEntity();
+        bankAccount.id = uuidv4();
+        bankAccount.memberId = member.id;
+        bankAccount.bankName = bankAcc.bankName;
+        bankAccount.bankAccountNo = bankAcc.bankAccountNo;
+        bankAccount.bankAccountName = bankAcc.bankAccountName;
+        bankAccount.createdBy = user.id;
+        bankAccount.createdAt = new Date();
+        await this.bankAccountRepo.save(bankAccount);
+
+        if (bankAcc.qrCode?.fileUrl) {
+          await this.fileArchivalService.create({
+            fileUrl: bankAcc.qrCode.fileUrl,
+            fileName:
+              bankAcc.qrCode.fileName ||
+              `qr_${member.code}_${bankAcc.bankName || 'bank'}`,
+            fileType: 'MEMBER_QR_CODE',
+            qrCodeId: bankAccount.id,
+            createdBy: user.id,
+          });
+        }
+      }
     }
 
     const existingUser = await this.userRepo.findOne({
@@ -178,8 +207,9 @@ export class MemberService {
     const newUser = new UserEntity();
     newUser.id = uuidv4();
     newUser.username = member.phone || member.email;
-    newUser.password = '123456';
+    newUser.password = '123@123';
     newUser.email = member.email;
+    newUser.refreshToken = '';
     newUser.isActive = true;
     newUser.isAdmin = false;
     newUser.memberId = member.id;
@@ -190,15 +220,15 @@ export class MemberService {
     await this.repo.update(member.id, { userId: newUser.id });
 
     const actionLogDto: ActionLogCreateDto = {
-      functionId: member.id,
-      functionType: 'STUDENT',
-      type: enumData.ActionLogType.CREATE.code,
+      entityId: member.id,
+      entityName: 'MEMBER',
+      actionType: enumData.ActionLogType.CREATE.code,
       createdById: user.id,
       createdByCode: user.username,
       createdByName: user.username,
-      description: `Tạo mới thành viên: ${member.code}`,
-      oldData: '{}',
-      newData: JSON.stringify(member),
+      createdNote: `Nhân viên ${user.username} tạo mới thành viên: ${member.code}`,
+      oldValue: '{}',
+      newValue: JSON.stringify(member),
     };
 
     await this.actionLogService.create(actionLogDto);
@@ -218,7 +248,7 @@ export class MemberService {
     }
 
     if (updateDto.avatar !== undefined) {
-      await this.fileArchivalRepo.delete({ memberId: member.id });
+      await this.fileArchivalService.removeByFk('memberId', member.id);
       const avatarData = Array.isArray(updateDto.avatar)
         ? updateDto.avatar[0]
         : updateDto.avatar;
@@ -232,21 +262,54 @@ export class MemberService {
             : avatarData.fileName;
 
         if (fileUrl) {
-          const fileArchivalDto: FileArchivalCreateDto = {
+          await this.fileArchivalService.create({
             fileUrl,
             fileName: fileName || 'avatar.jpg',
-            fileType: 'STUDENT_AVATAR',
-            fileRelationName: 'memberId',
-            fileRelationId: member.id,
+            fileType: 'MEMBER_AVATAR',
+            memberId: member.id,
             createdBy: user.id,
-            createdAt: new Date().toISOString(),
-          };
-          await this.fileArchivalService.create(fileArchivalDto);
+          });
         }
       }
     }
 
-    const { avatar, id, ...restUpdateData } = updateDto;
+    if (updateDto.bankAccounts !== undefined) {
+      const oldBankAccounts = await this.bankAccountRepo.find({
+        where: { memberId: member.id },
+        relations: { qrCode: true },
+      });
+
+      for (const acc of oldBankAccounts) {
+        await this.fileArchivalService.removeByFk('qrCodeId', acc.id);
+      }
+      await this.bankAccountRepo.delete({ memberId: member.id });
+
+      for (const bankAcc of updateDto.bankAccounts) {
+        const bankAccount = new MemberBankAccountEntity();
+        bankAccount.id = uuidv4();
+        bankAccount.memberId = member.id;
+        bankAccount.bankName = bankAcc.bankName;
+        bankAccount.bankAccountNo = bankAcc.bankAccountNo;
+        bankAccount.bankAccountName = bankAcc.bankAccountName;
+        bankAccount.createdBy = user.id;
+        bankAccount.createdAt = new Date();
+        await this.bankAccountRepo.save(bankAccount);
+
+        if (bankAcc.qrCode?.fileUrl) {
+          await this.fileArchivalService.create({
+            fileUrl: bankAcc.qrCode.fileUrl,
+            fileName:
+              bankAcc.qrCode.fileName ||
+              `qr_${member.code}_${bankAcc.bankName || 'bank'}`,
+            fileType: 'MEMBER_QR_CODE',
+            qrCodeId: bankAccount.id,
+            createdBy: user.id,
+          });
+        }
+      }
+    }
+
+    const { avatar, bankAccounts, id, ...restUpdateData } = updateDto;
 
     const memberUpdateData: any = {
       ...restUpdateData,
@@ -261,19 +324,50 @@ export class MemberService {
       relations: {
         avatar: true,
         user: true,
+        bankAccounts: { qrCode: true },
       },
     });
 
+    const existingUser = await this.userRepo.findOne({
+      where: { memberId: member.id },
+    });
+    if (existingUser) {
+      const userUpdates: any = {};
+      if (updateDto.email && updateDto.email !== existingUser.email)
+        userUpdates.email = updateDto.email;
+      if (updateDto.phone && updateDto.phone !== existingUser.username)
+        userUpdates.username = updateDto.phone;
+      if (Object.keys(userUpdates).length) {
+        userUpdates.updatedBy = user.id;
+        userUpdates.updatedAt = new Date();
+        await this.userRepo.update(existingUser.id, userUpdates);
+      }
+    } else {
+      const newUser = new UserEntity();
+      newUser.id = uuidv4();
+      newUser.username = updateDto.phone || updateDto.email;
+      newUser.password = '123@123';
+      newUser.email = updateDto.email;
+      newUser.refreshToken = '';
+      newUser.isActive = true;
+      newUser.isAdmin = false;
+      newUser.memberId = member.id;
+      newUser.createdBy = user.id;
+      newUser.createdAt = new Date();
+      await this.userRepo.save(newUser);
+      await this.repo.update(member.id, { userId: newUser.id });
+    }
+
     const actionLogDto: ActionLogCreateDto = {
-      functionId: member.id,
-      functionType: 'STUDENT',
-      type: enumData.ActionLogType.UPDATE.code,
+      entityId: member.id,
+      entityName: 'MEMBER',
+      actionType: enumData.ActionLogType.UPDATE.code,
       createdById: user.id,
-      createdByCode: user.code,
+      createdByCode: user.username,
       createdByName: user.username,
-      description: `Cập nhật thông tin thành viên: ${member.code}`,
-      oldData: JSON.stringify(member),
-      newData: JSON.stringify(updatedMember),
+      createdNote: `Nhân viên ${user.username} cập nhật thông tin thành viên: ${member.code}`,
+      oldValue: JSON.stringify(member),
+      newValue: JSON.stringify(updatedMember),
     };
     await this.actionLogService.create(actionLogDto);
 
@@ -308,15 +402,15 @@ export class MemberService {
     }
 
     const actionLogDto: ActionLogCreateDto = {
-      functionId: member.id,
-      functionType: 'STUDENT',
-      type: enumData.ActionLogType.DEACTIVATE.code,
+      entityId: member.id,
+      entityName: 'MEMBER',
+      actionType: enumData.ActionLogType.DEACTIVATE.code,
       createdById: user.id,
       createdByCode: user.code,
       createdByName: user.username,
-      description: `Ngừng hoạt động thành viên với code: ${member.code}`,
-      oldData: JSON.stringify(member),
-      newData: JSON.stringify({
+      createdNote: `Nhân viên ${user.username} ngừng hoạt động thành viên với code: ${member.code}`,
+      oldValue: JSON.stringify(member),
+      newValue: JSON.stringify({
         ...member,
         isDeleted: true,
         users: memberUsers.map((u) => ({
@@ -354,15 +448,15 @@ export class MemberService {
       );
     }
     const actionLogDto: ActionLogCreateDto = {
-      functionId: member.id,
-      functionType: 'STUDENT',
-      type: enumData.ActionLogType.ACTIVATE.code,
+      entityId: member.id,
+      entityName: 'MEMBER',
+      actionType: enumData.ActionLogType.ACTIVATE.code,
       createdById: user.id,
       createdByCode: user.code,
       createdByName: user.username,
-      description: `Kích hoạt thành viên với code: ${member.code}`,
-      oldData: JSON.stringify(member),
-      newData: JSON.stringify({
+      createdNote: `Nhân viên ${user.username} kích hoạt thành viên với code: ${member.code}`,
+      oldValue: JSON.stringify(member),
+      newValue: JSON.stringify({
         ...member,
         isDeleted: false,
         users: memberUsers.map((u) => ({
@@ -419,141 +513,21 @@ export class MemberService {
   }
 
   async updateAvatar(user: UserDto, data: UpdateMemberAvatarDto) {
-    const checkMember = await this.repo.findOne({
+    const member = await this.repo.findOne({
       where: { id: user.memberId },
     });
-    if (!checkMember) throw new NotFoundException('Không tìm thấy thành viên');
+    if (!member) throw new NotFoundException('Không tìm thấy thành viên');
 
-    await this.fileArchivalRepo.delete({ memberId: checkMember.id });
+    await this.fileArchivalService.removeByFk('memberId', member.id);
 
-    const fileArchival = new FileArchivalCreateDto();
-    fileArchival.createdBy = user.id;
-    fileArchival.fileUrl = data.avatarUrl;
-    fileArchival.fileName = 'avatarUrl';
-    fileArchival.fileType = 'STUDENT_AVATAR';
-    fileArchival.fileRelationName = 'memberId';
-    fileArchival.fileRelationId = checkMember.id;
-    fileArchival.createdAt = new Date().toISOString();
-    await this.fileArchivalService.create(fileArchival);
-
-    return {
-      message: 'Cập nhật ảnh đại diện thành công',
-    };
-  }
-
-  async findAccessRightsByMember(memberId: string) {
-    const data = await this.accessRightRepo.find({ where: { memberId } });
-    return { data };
-  }
-
-  async checkAccessRight(memberId: string, itemType: string, itemId?: string) {
-    const where: any = { memberId, itemType };
-    if (itemId) where.itemId = itemId;
-
-    const rights = await this.accessRightRepo.find({ where });
-    const now = new Date();
-    const hasAccess = rights.some(
-      (r) =>
-        (!r.validFrom || r.validFrom <= now) &&
-        (!r.validUntil || r.validUntil >= now),
-    );
-    return { hasAccess, data: rights };
-  }
-
-  async findAnswersBySession(sessionId: string) {
-    const items = await this.answerRepo.find({
-      where: { sessionId, isDeleted: false },
-      relations: { question: true, examQuestion: true },
-      order: { createdAt: 'ASC' },
-    });
-    return { data: items };
-  }
-
-  async findAnswerById(data: IdDto) {
-    const result = await this.answerRepo.findOne({
-      where: { id: data.id },
-      relations: { session: true, question: true, examQuestion: true },
-    });
-    if (!result) {
-      throw new NotFoundException('Không tìm thấy câu trả lời');
-    }
-    return { message: 'Tìm kiếm câu trả lời thành công', data: result };
-  }
-
-  async upsertCertStat(dto: CreateMemberCertStatDto) {
-    const existing = await this.certStatRepo.findOne({
-      where: { memberId: dto.memberId, certTypeId: dto.certTypeId },
+    await this.fileArchivalService.create({
+      fileUrl: data.avatarUrl,
+      fileName: `avatar_${member.code}`,
+      fileType: 'MEMBER_AVATAR',
+      memberId: member.id,
+      createdBy: user.id,
     });
 
-    if (existing) {
-      if (dto.elo !== undefined) existing.elo = dto.elo;
-      if (dto.totalExams !== undefined) existing.totalExams = dto.totalExams;
-      if (dto.totalPractices !== undefined)
-        existing.totalPractices = dto.totalPractices;
-      if (dto.totalArenaMatches !== undefined)
-        existing.totalArenaMatches = dto.totalArenaMatches;
-      if (dto.arenaWins !== undefined) existing.arenaWins = dto.arenaWins;
-      if (dto.avgExamScore !== undefined)
-        existing.avgExamScore = dto.avgExamScore;
-      if (dto.bestExamScore !== undefined)
-        existing.bestExamScore = dto.bestExamScore;
-      if (dto.estimatedScore !== undefined)
-        existing.estimatedScore = dto.estimatedScore;
-      if (dto.streakDays !== undefined) existing.streakDays = dto.streakDays;
-      if (dto.totalStudyMins !== undefined)
-        existing.totalStudyMins = dto.totalStudyMins;
-      if (dto.lastActivityAt !== undefined)
-        existing.lastActivityAt = dto.lastActivityAt;
-      await this.certStatRepo.save(existing);
-    } else {
-      const entity = new MemberCertStatEntity();
-      entity.memberId = dto.memberId;
-      entity.certTypeId = dto.certTypeId;
-      entity.elo = dto.elo ?? 1000;
-      entity.totalExams = dto.totalExams ?? 0;
-      entity.totalPractices = dto.totalPractices ?? 0;
-      entity.totalArenaMatches = dto.totalArenaMatches ?? 0;
-      entity.arenaWins = dto.arenaWins ?? 0;
-      entity.avgExamScore = dto.avgExamScore ?? 0;
-      entity.bestExamScore = dto.bestExamScore ?? 0;
-      entity.estimatedScore = (dto.estimatedScore ?? null) as string;
-      entity.streakDays = dto.streakDays ?? 0;
-      entity.totalStudyMins = dto.totalStudyMins ?? 0;
-      entity.lastActivityAt = dto.lastActivityAt as Date;
-      await this.certStatRepo.save(entity);
-    }
-
-    return { message: 'Cập nhật thống kê chứng chỉ thành công' };
-  }
-
-  async getCertStatById(id: string) {
-    const result = await this.certStatRepo.findOne({ where: { id } });
-    if (!result) throw new NotFoundException('Không tìm thấy thống kê');
-    return { data: result };
-  }
-
-  async findCertStatsByMember(memberId: string) {
-    const data = await this.certStatRepo.find({ where: { memberId } });
-    return { data };
-  }
-
-  async findSkillStatsByMember(memberId: string) {
-    const data = await this.skillStatRepo.find({ where: { memberId } });
-    return { data };
-  }
-
-  async findSkillStatsBySkill(certSkillId: string) {
-    const data = await this.skillStatRepo.find({ where: { certSkillId } });
-    return { data };
-  }
-
-  async findTopicStatsByMember(memberId: string) {
-    const data = await this.topicStatRepo.find({ where: { memberId } });
-    return { data };
-  }
-
-  async findTopicStatsByTopic(topicId: string) {
-    const data = await this.topicStatRepo.find({ where: { topicId } });
-    return { data };
+    return { message: 'Cập nhật ảnh đại diện thành công' };
   }
 }

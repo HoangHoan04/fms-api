@@ -1,5 +1,6 @@
 import {
   EmployeeEntity,
+  MemberBankAccountEntity,
   MemberEntity,
   PermissionEntity,
   RoleEntity,
@@ -17,6 +18,9 @@ export class UserRepository extends Repository<UserEntity> {}
 
 @CustomRepository(MemberEntity)
 export class MemberRepository extends Repository<MemberEntity> {}
+
+@CustomRepository(MemberBankAccountEntity)
+export class MemberBankAccountRepository extends Repository<MemberBankAccountEntity> {}
 
 @CustomRepository(VerifyOtpEntity)
 export class VerifyOtpRepository extends Repository<VerifyOtpEntity> {}

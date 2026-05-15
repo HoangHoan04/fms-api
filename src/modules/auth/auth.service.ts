@@ -1,7 +1,9 @@
 import { enumData } from '@/common/contanst/enumData';
 import { UserDto } from '@/dto';
+import { LoginLogEntity } from '@/entities';
 import { MemberEntity, UserEntity } from '@/entities/users';
 import {
+  LoginLogRepository,
   MemberRepository,
   RolePermissionRepository,
   UserPermissionRepository,
@@ -23,7 +25,6 @@ import { customAlphabet } from 'nanoid';
 import { lastValueFrom } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 import { EmailService } from '../email/email.service';
-import { FileArchivalCreateDto } from '../file-archival/dto';
 import { FileArchivalService } from '../file-archival/file-archival.service';
 import { NotifyService } from '../notify/notify.service';
 import {
@@ -55,7 +56,47 @@ export class AuthService {
     private readonly notifyService: NotifyService,
     private readonly userPermissionRepo: UserPermissionRepository,
     private readonly rolePermissionRepo: RolePermissionRepository,
+    private readonly loginLogRepo: LoginLogRepository,
   ) {}
+
+  private determineActorType(user: UserEntity): string {
+    if (user.isAdmin) return 'admin';
+    if (user.memberId) return 'member';
+    if (user.employeeId) return 'employee';
+    return 'unknown';
+  }
+
+  private async createLoginLog(params: {
+    userId: string;
+    actorType: string;
+    actorId?: string;
+    loginProvider?: string;
+    status: 'success' | 'failed';
+    failReason?: string;
+    ipAddress?: string;
+    userAgent?: string;
+    sessionId?: string;
+  }): Promise<void> {
+    try {
+      const log = new LoginLogEntity();
+      log.id = uuidv4();
+      log.userId = params.userId;
+      log.actorType = params.actorType;
+      log.actorId = params.actorId;
+      log.loginProvider = params.loginProvider;
+      log.status = params.status;
+      log.failReason = params.failReason;
+      log.ipAddress = params.ipAddress;
+      log.userAgent = params.userAgent;
+      log.sessionId = params.sessionId;
+      log.loggedInAt = params.status === 'success' ? new Date() : undefined;
+      log.createdAt = new Date();
+      log.createdBy = params.userId;
+      await this.loginLogRepo.save(log);
+    } catch (error) {
+      console.error('Failed to save login log:', error);
+    }
+  }
 
   private async computeUserPermissions(userId: string): Promise<string[]> {
     const user = await this.userRepo.findOne({
@@ -113,7 +154,10 @@ export class AuthService {
   }
 
   /** Đăng nhập */
-  async login(data: UserLoginDto) {
+  async login(
+    data: UserLoginDto,
+    context?: { ipAddress?: string; userAgent?: string },
+  ) {
     const user = await this.userRepo.findOne({
       where: [
         { username: data.username, isDeleted: false },
@@ -133,11 +177,31 @@ export class AuthService {
     }
 
     if (!user.isActive) {
+      await this.createLoginLog({
+        userId: user.id,
+        actorType: this.determineActorType(user),
+        actorId: user.memberId || user.employeeId,
+        loginProvider: 'local',
+        status: 'failed',
+        failReason: 'account_disabled',
+        ipAddress: context?.ipAddress,
+        userAgent: context?.userAgent,
+      });
       throw new UnauthorizedException('Tài khoản đã bị vô hiệu hóa');
     }
 
     const isPasswordValid = await bcrypt.compare(data.password, user.password);
     if (!isPasswordValid) {
+      await this.createLoginLog({
+        userId: user.id,
+        actorType: this.determineActorType(user),
+        actorId: user.memberId || user.employeeId,
+        loginProvider: 'local',
+        status: 'failed',
+        failReason: 'wrong_password',
+        ipAddress: context?.ipAddress,
+        userAgent: context?.userAgent,
+      });
       throw new UnauthorizedException('Mật khẩu không đúng! Vui lòng thử lại');
     }
 
@@ -173,6 +237,17 @@ export class AuthService {
       });
     }
 
+    await this.createLoginLog({
+      userId: user.id,
+      actorType: this.determineActorType(user),
+      actorId: user.memberId || user.employeeId,
+      loginProvider: 'local',
+      status: 'success',
+      ipAddress: context?.ipAddress,
+      userAgent: context?.userAgent,
+      sessionId: accessToken,
+    });
+
     const permissions = await this.computeUserPermissions(user.id);
 
     const userInfo = {
@@ -197,7 +272,10 @@ export class AuthService {
   }
 
   /** Đăng nhập với Google */
-  async loginWithGoogle(data: GoogleLoginDto) {
+  async loginWithGoogle(
+    data: GoogleLoginDto,
+    context?: { ipAddress?: string; userAgent?: string },
+  ) {
     try {
       const googleUser = await this.verifyGoogleIdToken(data.idToken);
 
@@ -222,16 +300,13 @@ export class AuthService {
           });
 
           if (existingUser.memberId && googleUser.picture) {
-            const fileArchival = new FileArchivalCreateDto();
-            fileArchival.fileUrl = googleUser.picture;
-            fileArchival.fileName = `google_avatar_${googleUser.sub}`;
-            fileArchival.fileType = 'member_AVATAR';
-            fileArchival.fileRelationName = 'memberId';
-            fileArchival.fileRelationId = existingUser.memberId;
-            fileArchival.createdBy = 'google-oauth';
-            fileArchival.createdAt = new Date().toISOString();
-
-            await this.fileArchivalService.create(fileArchival);
+            await this.fileArchivalService.create({
+              fileUrl: googleUser.picture,
+              fileName: `google_avatar_${googleUser.sub}`,
+              fileType: 'MEMBER_AVATAR',
+              memberId: existingUser.memberId,
+              createdBy: 'google-oauth',
+            });
           }
 
           user = await this.userRepo.findOne({
@@ -257,16 +332,13 @@ export class AuthService {
         await this.memberRepo.insert(member);
 
         if (googleUser.picture) {
-          const fileArchival = new FileArchivalCreateDto();
-          fileArchival.fileUrl = googleUser.picture;
-          fileArchival.fileName = `google_avatar_${googleUser.sub}`;
-          fileArchival.fileType = 'member_AVATAR';
-          fileArchival.fileRelationName = 'memberId';
-          fileArchival.fileRelationId = member.id;
-          fileArchival.createdBy = 'google-oauth';
-          fileArchival.createdAt = new Date().toISOString();
-
-          await this.fileArchivalService.create(fileArchival);
+          await this.fileArchivalService.create({
+            fileUrl: googleUser.picture,
+            fileName: `google_avatar_${googleUser.sub}`,
+            fileType: 'MEMBER_AVATAR',
+            memberId: member.id,
+            createdBy: 'google-oauth',
+          });
         }
 
         user = new UserEntity();
@@ -279,6 +351,7 @@ export class AuthService {
         user.isAdmin = false;
         user.memberId = member.id;
         user.employeeId = undefined;
+        user.refreshToken = '';
         user.googleId = googleUser.sub;
         user.loginProvider = enumData.LoginProvider.GOOGLE;
         user.isVerified = true;
@@ -288,6 +361,16 @@ export class AuthService {
         await this.userRepo.insert(user);
       } else {
         if (!user.isActive) {
+          await this.createLoginLog({
+            userId: user.id,
+            actorType: this.determineActorType(user),
+            actorId: user.memberId || user.employeeId,
+            loginProvider: 'google',
+            status: 'failed',
+            failReason: 'account_disabled',
+            ipAddress: context?.ipAddress,
+            userAgent: context?.userAgent,
+          });
           throw new UnauthorizedException('Tài khoản đã bị vô hiệu hóa');
         }
       }
@@ -310,6 +393,17 @@ export class AuthService {
       await this.userRepo.update(user.id, {
         refreshToken: hashedRefreshToken,
         lastLoginAt: new Date(),
+      });
+
+      await this.createLoginLog({
+        userId: user.id,
+        actorType: this.determineActorType(user),
+        actorId: user.memberId || user.employeeId,
+        loginProvider: 'google',
+        status: 'success',
+        ipAddress: context?.ipAddress,
+        userAgent: context?.userAgent,
+        sessionId: accessToken,
       });
 
       const fullUser = await this.userRepo.findOne({
@@ -388,7 +482,10 @@ export class AuthService {
   }
 
   /** Đăng nhập với Facebook */
-  async loginWithFacebook(data: FacebookLoginDto) {
+  async loginWithFacebook(
+    data: FacebookLoginDto,
+    context?: { ipAddress?: string; userAgent?: string },
+  ) {
     try {
       const fbUser = await this.getFacebookUserInfo(data.accessToken);
       if (!fbUser.id) {
@@ -434,16 +531,13 @@ export class AuthService {
           await this.memberRepo.insert(member);
 
           if (fbUser.picture?.data?.url) {
-            const fileArchival = new FileArchivalCreateDto();
-            fileArchival.fileUrl = fbUser.picture.data.url;
-            fileArchival.fileName = `facebook_avatar_${fbUser.id}`;
-            fileArchival.fileType = 'member_AVATAR';
-            fileArchival.fileRelationName = 'memberId';
-            fileArchival.fileRelationId = member.id;
-            fileArchival.createdBy = 'facebook-oauth';
-            fileArchival.createdAt = new Date().toISOString();
-
-            await this.fileArchivalService.create(fileArchival);
+            await this.fileArchivalService.create({
+              fileUrl: fbUser.picture.data.url,
+              fileName: `facebook_avatar_${fbUser.id}`,
+              fileType: 'MEMBER_AVATAR',
+              memberId: member.id,
+              createdBy: 'facebook-oauth',
+            });
           }
 
           user = new UserEntity();
@@ -456,6 +550,7 @@ export class AuthService {
           user.isAdmin = false;
           user.memberId = member.id;
           user.employeeId = undefined;
+          user.refreshToken = '';
           user.facebookId = fbUser.id;
           user.loginProvider = enumData.LoginProvider.FACEBOOK;
           user.isVerified = true;
@@ -465,8 +560,19 @@ export class AuthService {
           await this.userRepo.insert(user);
         }
       } else {
-        if (!user.isActive)
+        if (!user.isActive) {
+          await this.createLoginLog({
+            userId: user.id,
+            actorType: this.determineActorType(user),
+            actorId: user.memberId || user.employeeId,
+            loginProvider: 'facebook',
+            status: 'failed',
+            failReason: 'account_disabled',
+            ipAddress: context?.ipAddress,
+            userAgent: context?.userAgent,
+          });
           throw new UnauthorizedException('Tài khoản bị vô hiệu hóa');
+        }
       }
 
       const payload = { uid: user.id };
@@ -487,6 +593,17 @@ export class AuthService {
       await this.userRepo.update(user.id, {
         refreshToken: hashedRefreshToken,
         lastLoginAt: new Date(),
+      });
+
+      await this.createLoginLog({
+        userId: user.id,
+        actorType: this.determineActorType(user),
+        actorId: user.memberId || user.employeeId,
+        loginProvider: 'facebook',
+        status: 'success',
+        ipAddress: context?.ipAddress,
+        userAgent: context?.userAgent,
+        sessionId: accessToken,
       });
 
       const fullUser = await this.userRepo.findOne({
@@ -655,6 +772,16 @@ export class AuthService {
 
     const permissions = await this.computeUserPermissions(currentUser.id);
 
+    const avatarList = await currentUser.member?.avatar;
+
+    const avatarArray =
+      avatarList && avatarList.length > 0
+        ? avatarList.map((avatar) => ({
+            fileName: avatar.fileName,
+            fileUrl: avatar.fileUrl,
+          }))
+        : [];
+
     const data = {
       id: currentUser.id,
       code: currentUser.code,
@@ -670,6 +797,7 @@ export class AuthService {
       member: currentUser.member,
       roles: currentUser.userRoles?.map((ur) => ur.role),
       permissions,
+      avatar: avatarArray,
     };
 
     return {
@@ -778,17 +906,17 @@ export class AuthService {
 
     await this.memberRepo.insert(member);
 
-    // 4. Create User
+    // 4. Create User (@BeforeInsert sẽ tự hash password)
     const user = new UserEntity();
     user.id = uuidv4();
     user.code = this.genCodeUser();
-    user.username = data.phone;
+    user.username = data.phone || data.email;
     user.email = data.email;
-    const hashedParams = await bcrypt.hash(data.password, 10);
-    user.password = hashedParams;
+    user.password = data.password;
     user.isActive = true;
     user.isAdmin = false;
     user.memberId = member.id;
+    user.refreshToken = '';
     user.isVerified = true;
     user.createdAt = new Date();
     user.createdBy = 'system';
@@ -821,7 +949,10 @@ export class AuthService {
     return { message: 'Khôi phục mật khẩu thành công' };
   }
 
-  async verifyLoginOtp(data: VerifyLoginOtpDto) {
+  async verifyLoginOtp(
+    data: VerifyLoginOtpDto,
+    context?: { ipAddress?: string; userAgent?: string },
+  ) {
     await this.otpService.verifyOtp(data.identifier, data.otpCode, data.method);
 
     const isEmail = data.method === 'EMAIL';
@@ -833,8 +964,19 @@ export class AuthService {
     });
 
     if (!user) throw new BadRequestException('Tài khoản không tồn tại');
-    if (!user.isActive)
+    if (!user.isActive) {
+      await this.createLoginLog({
+        userId: user.id,
+        actorType: this.determineActorType(user),
+        actorId: user.memberId || user.employeeId,
+        loginProvider: 'otp',
+        status: 'failed',
+        failReason: 'account_disabled',
+        ipAddress: context?.ipAddress,
+        userAgent: context?.userAgent,
+      });
       throw new UnauthorizedException('Tài khoản đã bị vô hiệu hóa');
+    }
 
     const payload = { uid: user.id };
     const accessToken = this.jwtService.sign(payload);
@@ -852,6 +994,17 @@ export class AuthService {
     await this.userRepo.update(user.id, {
       refreshToken: hashedRefreshToken,
       lastLoginAt: new Date(),
+    });
+
+    await this.createLoginLog({
+      userId: user.id,
+      actorType: this.determineActorType(user),
+      actorId: user.memberId || user.employeeId,
+      loginProvider: 'otp',
+      status: 'success',
+      ipAddress: context?.ipAddress,
+      userAgent: context?.userAgent,
+      sessionId: accessToken,
     });
 
     return {

@@ -6,10 +6,7 @@ import { UserPermissionEntity } from './user-permission.entity';
 
 @Entity('permissions')
 export class PermissionEntity extends BaseEntity {
-  @ApiProperty({
-    description: 'Mã quyền',
-    example: 'question:create',
-  })
+  @ApiProperty({ description: 'Mã quyền' })
   @Index({ unique: true })
   @Column({ type: 'varchar', length: 100, unique: true })
   code: string;
@@ -22,15 +19,11 @@ export class PermissionEntity extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @ApiProperty({
-    description: 'Nhóm chức năng',
-  })
+  @ApiProperty({ description: 'Nhóm chức năng' })
   @Column({ type: 'varchar', length: 50, nullable: true })
   module: string;
 
-  @ApiProperty({
-    description: 'Hành động',
-  })
+  @ApiProperty({ description: 'Hành động' })
   @Column({ type: 'varchar', length: 50, nullable: true })
   action: string;
 

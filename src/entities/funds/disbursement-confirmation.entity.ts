@@ -1,9 +1,8 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 import { BaseEntity } from '../base.entity';
-import { DisbursementEntity } from './disbursement.entity';
-import { MemberEntity } from '../users/member.entity';
 import { FileArchivalEntity } from '../file-archival.entity';
+import { MemberEntity } from '../users/member.entity';
+import { DisbursementEntity } from './disbursement.entity';
 
 /** Xác nhận người nhận đã thực sự nhận được tiền */
 @Entity('disbursement-confirmations')
@@ -26,12 +25,8 @@ export class DisbursementConfirmationEntity extends BaseEntity {
   @JoinColumn({ name: 'confirmedBy' })
   confirmer?: MemberEntity;
 
-  /** Ảnh chụp biên lai / màn hình giao dịch của người nhận */
-  @Column({ type: 'uuid', nullable: true })
-  proofFileId?: string;
-  @ManyToOne(() => FileArchivalEntity)
-  @JoinColumn({ name: 'proofFileId' })
-  proofFile?: FileArchivalEntity;
+  @OneToMany(() => FileArchivalEntity, (p) => p.disbursementConfirmation)
+  proofFile: Promise<FileArchivalEntity[]>;
 
   /** Ghi chú xác nhận */
   @Column({ type: 'text', nullable: true })

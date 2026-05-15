@@ -1,16 +1,22 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmExModule } from '@/typeorm';
-import { RoleRepository } from '@/repositories/user.repository';
+import {
+  RoleRepository,
+  RolePermissionRepository,
+} from '@/repositories/user.repository';
+import { RoleController } from './role.controller';
 import { RoleService } from './role.service';
-import { AdminRoleController } from './controllers/admin-role.controller';
 import { ActionLogModule } from '../action-log/action-log.module';
 
 @Module({
   imports: [
-    TypeOrmExModule.forCustomRepository([RoleRepository]),
+    TypeOrmExModule.forCustomRepository([
+      RoleRepository,
+      RolePermissionRepository,
+    ]),
     ActionLogModule,
   ],
-  controllers: [AdminRoleController],
+  controllers: [RoleController],
   providers: [RoleService],
   exports: [RoleService],
 })

@@ -21,17 +21,16 @@ import { UploadFileService } from './upload-file.service';
 export class UploadFileController {
   constructor(private readonly service: UploadFileService) {}
 
-  @ApiOperation({
-    summary:
-      'Upload single - tự động phân loại (ảnh → Cloudinary, audio/doc → R2)',
-  })
+  @ApiOperation({ summary: 'Upload single - tự động phân loại lên Cloudinary' })
   @Post('upload-single')
   @UseInterceptors(FileInterceptor('file'))
   async uploadSingle(@UploadedFile() file: Express.Multer.File) {
     return await this.service.uploadSingle(file);
   }
 
-  @ApiOperation({ summary: 'Upload multiple files - tự động phân loại' })
+  @ApiOperation({
+    summary: 'Upload multiple files - tự động phân loại lên Cloudinary',
+  })
   @Post('upload-multi')
   @UseInterceptors(FilesInterceptor('files'))
   async uploadMulti(@UploadedFiles() files: Array<Express.Multer.File>) {
@@ -41,30 +40,28 @@ export class UploadFileController {
     return await this.service.uploadMulti(files);
   }
 
-  @ApiOperation({ summary: 'Upload ảnh (ép Cloudinary)' })
+  @ApiOperation({ summary: 'Upload ảnh lên Cloudinary' })
   @Post('upload-image')
   @UseInterceptors(FileInterceptor('file'))
   async uploadImage(@UploadedFile() file: Express.Multer.File) {
     return await this.service.uploadImage(file);
   }
 
-  @ApiOperation({ summary: 'Upload audio (ép R2)' })
+  @ApiOperation({ summary: 'Upload audio lên Cloudinary' })
   @Post('upload-audio')
   @UseInterceptors(FileInterceptor('file'))
   async uploadAudio(@UploadedFile() file: Express.Multer.File) {
     return await this.service.uploadAudio(file);
   }
 
-  @ApiOperation({ summary: 'Upload document (ép R2)' })
+  @ApiOperation({ summary: 'Upload document lên Cloudinary' })
   @Post('upload-document')
   @UseInterceptors(FileInterceptor('file'))
   async uploadDocument(@UploadedFile() file: Express.Multer.File) {
     return await this.service.uploadDocument(file);
   }
 
-  @ApiOperation({
-    summary: 'Upload file lên Catbox.moe (miễn phí, không giới hạn)',
-  })
+  @ApiOperation({ summary: 'Upload file lên Catbox.moe (miễn phí)' })
   @Post('upload-catbox')
   @UseInterceptors(FileInterceptor('file'))
   async uploadCatbox(@UploadedFile() file: Express.Multer.File) {

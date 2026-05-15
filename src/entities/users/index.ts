@@ -1,4 +1,5 @@
 export * from './employee.entity';
+export * from './member-bank-account.entity';
 export * from './member.entity';
 export * from './permission.entity';
 export * from './role-permission.entity';

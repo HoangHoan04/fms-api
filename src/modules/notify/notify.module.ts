@@ -1,17 +1,23 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-
-import { NotifyService } from './notify.service';
-import { NotifyRepository, UserRepository } from '@/repositories';
+import { Module } from '@nestjs/common';
 import { TypeOrmExModule } from '@/typeorm';
+import {
+  NotificationRepository,
+  NotificationTemplateRepository,
+  UserRepository,
+} from '@/repositories';
+import { NotifyController } from './notify.controller';
+import { NotifyService } from './notify.service';
 
 @Module({
+  imports: [
+    TypeOrmExModule.forCustomRepository([
+      NotificationRepository,
+      NotificationTemplateRepository,
+      UserRepository,
+    ]),
+  ],
   providers: [NotifyService],
   exports: [NotifyService],
-  controllers: [],
-  imports: [
-    TypeOrmExModule.forCustomRepository([NotifyRepository, UserRepository]),
-  ],
+  controllers: [NotifyController],
 })
-export class NotifyModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {}
-}
+export class NotifyModule {}

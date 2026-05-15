@@ -12,10 +12,25 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { redisStore } from 'cache-manager-redis-yet';
 import { CustomThrottlerGuard } from '../common/guards';
 import { ContextMiddleware, LoggerMiddleware } from '../middlewares';
+import { ActionLogModule } from './action-log/action-log.module';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
+import { ContributionModule } from './contribution/contribution.module';
+import { DisbursementModule } from './disbursement/disbursement.module';
+import { EmailModule } from './email/email.module';
 import { EmployeeModule } from './employee/employee.module';
+import { FileArchivalModule } from './file-archival/file-archival.module';
+import { FundCycleModule } from './fund-cycle/fund-cycle.module';
+import { FundModule } from './fund/fund.module';
+import { LoginLogModule } from './login-log/login-log.module';
 import { MemberModule } from './member/member.module';
+import { NotifyModule } from './notify/notify.module';
+import { PermissionModule } from './permission/permission.module';
+import { ReceiptModule } from './receipt/receipt.module';
+import { RoleModule } from './role/role.module';
+import { SystemConfigModule } from './system-config/system-config.module';
+import { TransactionModule } from './transaction/transaction.module';
+import { UploadFileModule } from './upload-file/upload-file.module';
 
 const globalModules = [
   // ❌ Tắt Redis Cache
@@ -56,9 +71,24 @@ const globalModules = [
             ? '.env.dev'
             : '.env',
     }),
+    ActionLogModule,
     AuthModule,
-    MemberModule,
+    ContributionModule,
+    DisbursementModule,
+    EmailModule,
     EmployeeModule,
+    FileArchivalModule,
+    FundCycleModule,
+    FundModule,
+    LoginLogModule,
+    MemberModule,
+    NotifyModule,
+    PermissionModule,
+    ReceiptModule,
+    RoleModule,
+    SystemConfigModule,
+    TransactionModule,
+    UploadFileModule,
   ],
   controllers: [AppController],
   providers: [

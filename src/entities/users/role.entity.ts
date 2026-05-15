@@ -6,10 +6,7 @@ import { RolePermissionEntity } from './role-permission.entity';
 
 @Entity('roles')
 export class RoleEntity extends BaseEntity {
-  @ApiProperty({
-    description: 'Mã role',
-    enum: ['ADMIN', 'EMPLOYEE', 'MEMBER'],
-  })
+  @ApiProperty({ description: 'Mã role' })
   @Index({ unique: true })
   @Column({ type: 'varchar', length: 50, unique: true })
   code: string;

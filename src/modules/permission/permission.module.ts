@@ -5,6 +5,8 @@ import {
 } from '@/repositories/user.repository';
 import { TypeOrmExModule } from '@/typeorm';
 import { Module } from '@nestjs/common';
+import { ActionLogModule } from '../action-log/action-log.module';
+import { PermissionController } from './permission.controller';
 import { PermissionService } from './permission.service';
 import { ModuleDiscoveryService } from './services/module-discovery.service';
 
@@ -15,8 +17,9 @@ import { ModuleDiscoveryService } from './services/module-discovery.service';
       RolePermissionRepository,
       UserPermissionRepository,
     ]),
+    ActionLogModule,
   ],
-  controllers: [],
+  controllers: [PermissionController],
   providers: [PermissionService, ModuleDiscoveryService],
   exports: [PermissionService, ModuleDiscoveryService],
 })

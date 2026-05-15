@@ -41,7 +41,7 @@ export class OtpService {
 
     const otp = await this.otpRepo.findOne({
       where: whereClause,
-      order: { createdDate: 'DESC' },
+      order: { createdAt: 'DESC' },
     });
 
     if (!otp) {

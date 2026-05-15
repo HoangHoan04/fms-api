@@ -42,7 +42,7 @@ export class SystemConfigEntity extends BaseEntity {
     type: 'varchar',
     length: 50,
     nullable: true,
-    default: enumData.SettingTab.SYSTEM.code,
+    default: 'SYSTEM',
     comment: 'Thiết lập dành cho',
   })
   settingTab: string;
