@@ -1,11 +1,11 @@
-import { ApiProperty } from '@nestjs/swagger';
 import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import { transformer } from '../../helpers';
 import { BaseEntity } from '../base.entity';
-import { FundReceiptEntity } from './fund-receipt.entity';
-import { FundCycleEntity } from './fund-cycle.entity';
-import { EmployeeEntity } from '../users/employee.entity';
 import { FileArchivalEntity } from '../file-archival.entity';
+import { EmployeeEntity } from '../users/employee.entity';
 import { DisbursementConfirmationEntity } from './disbursement-confirmation.entity';
+import { FundCycleEntity } from './fund-cycle.entity';
+import { FundReceiptEntity } from './fund-receipt.entity';
 
 /** Phiếu giải ngân – ghi nhận việc chuyển tiền thực tế cho người nhận */
 @Entity('disbursements')
@@ -25,7 +25,12 @@ export class DisbursementEntity extends BaseEntity {
   cycle: FundCycleEntity;
 
   /** Số tiền thực tế đã chuyển */
-  @Column({ type: 'decimal', precision: 18, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    transformer: transformer,
+  })
   amount: number;
 
   /** Thời điểm chuyển tiền */

@@ -1,10 +1,11 @@
+import { FileDto } from '@/dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
-  IsNumber,
   Min,
 } from 'class-validator';
 
@@ -34,10 +35,9 @@ export class CreateDisbursementDto {
   @IsString()
   transactionRef?: string;
 
-  @ApiPropertyOptional({ description: 'ID file chứng từ' })
+  @ApiPropertyOptional({ description: 'File chứng từ' })
   @IsOptional()
-  @IsUUID()
-  proofFileId?: string;
+  proofFile?: FileDto[];
 
   @ApiPropertyOptional({ description: 'Ngân hàng nhận' })
   @IsOptional()
@@ -66,10 +66,9 @@ export class ConfirmDisbursementDto {
   @IsNotEmpty()
   id: string;
 
-  @ApiPropertyOptional({ description: 'ID file chứng từ xác nhận' })
+  @ApiPropertyOptional({ description: 'File chứng từ xác nhận' })
   @IsOptional()
-  @IsUUID()
-  proofFileId?: string;
+  proofFile?: FileDto[];
 
   @ApiPropertyOptional({ description: 'Ghi chú xác nhận' })
   @IsOptional()

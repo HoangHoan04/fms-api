@@ -6,6 +6,7 @@ import {
   ManyToOne,
   OneToMany,
 } from 'typeorm';
+import { transformer } from '../../helpers';
 import { BaseEntity } from '../base.entity';
 import { FileArchivalEntity } from '../file-archival.entity';
 import { EmployeeEntity } from '../users/employee.entity';
@@ -41,11 +42,22 @@ export class FundReceiptEntity extends BaseEntity {
   reason?: string;
 
   /** Số tiền đề nghị nhận */
-  @Column({ type: 'decimal', precision: 18, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    transformer: transformer,
+  })
   requestedAmount: number;
 
   /** Số tiền được phê duyệt (có thể khác requestedAmount) */
-  @Column({ type: 'decimal', precision: 18, scale: 2, nullable: true })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    nullable: true,
+    transformer: transformer,
+  })
   approvedAmount?: number;
 
   /** Mức ưu tiên xét duyệt (0=bình thường, 1=ưu tiên, 2=khẩn cấp) */

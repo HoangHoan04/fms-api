@@ -1,10 +1,10 @@
 import { enumData } from '@/common/contanst/enumData';
-import { coreHelper } from '@/helpers';
 import { IdDto, PaginationDto, UserDto } from '@/dto';
-import { DisbursementEntity, DisbursementConfirmationEntity } from '@/entities';
+import { DisbursementConfirmationEntity, DisbursementEntity } from '@/entities';
+import { coreHelper } from '@/helpers';
 import {
-  DisbursementRepository,
   DisbursementConfirmationRepository,
+  DisbursementRepository,
 } from '@/repositories';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { FindOptionsWhere } from 'typeorm';
@@ -61,7 +61,6 @@ export class DisbursementService {
     disbursement.amount = dto.amount;
     disbursement.paymentMethod = dto.paymentMethod;
     disbursement.transactionRef = dto.transactionRef;
-    disbursement.proofFileId = dto.proofFileId;
     disbursement.bankName = dto.bankName;
     disbursement.bankAccountNo = dto.bankAccountNo;
     disbursement.bankAccountName = dto.bankAccountName;
@@ -97,8 +96,8 @@ export class DisbursementService {
     confirmation.disbursementId = disbursement.id;
     confirmation.confirmedBy = user.memberId || user.id;
     confirmation.confirmedAt = new Date();
-    confirmation.proofFileId = dto.proofFileId;
     confirmation.note = dto.note;
+
     await this.confirmationRepo.save(confirmation);
 
     return { message: 'Xác nhận giải ngân thành công' };

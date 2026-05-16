@@ -115,184 +115,140 @@ export const enumData = {
   },
 
   /** Trạng thái thành viên: active | inactive | suspended */
-  MemberStatus: {
-    ACTIVE: { code: 'active', name: 'Đang hoạt động' },
-    INACTIVE: { code: 'inactive', name: 'Ngưng hoạt động' },
-    SUSPENDED: { code: 'suspended', name: 'Bị tạm khóa' },
+  MEMBER_STATUS: {
+    ACTIVE: { code: 'ACTIVE', name: 'Đang hoạt động' },
+    INACTIVE: { code: 'INACTIVE', name: 'Ngưng hoạt động' },
+    SUSPENDED: { code: 'SUSPENDED', name: 'Bị tạm khóa' },
   },
 
   /** Trạng thái quỹ: draft | active | paused | closed */
-  FundStatus: {
-    DRAFT: { code: 'draft', name: 'Bản nháp' },
-    ACTIVE: { code: 'active', name: 'Đang hoạt động' },
-    PAUSED: { code: 'paused', name: 'Tạm dừng' },
-    CLOSED: { code: 'closed', name: 'Đã đóng' },
+  FUND_STATUS: {
+    DRAFT: { code: 'DRAFT', name: 'Bản nháp', color: 'gray' },
+    ACTIVE: { code: 'ACTIVE', name: 'Đang hoạt động', color: 'green' },
+    PAUSED: { code: 'PAUSED', name: 'Tạm dừng', color: 'yellow' },
+    CLOSED: { code: 'CLOSED', name: 'Đã đóng', color: 'red' },
   },
 
   /** Trạng thái thành viên trong quỹ: active | inactive | suspended */
-  FundMemberStatus: {
-    ACTIVE: { code: 'active', name: 'Đang tham gia' },
-    INACTIVE: { code: 'inactive', name: 'Ngưng tham gia' },
-    SUSPENDED: { code: 'suspended', name: 'Bị tạm khóa' },
+  FUND_MEMBER_STATUS: {
+    ACTIVE: { code: 'ACTIVE', name: 'Đang tham gia' },
+    INACTIVE: { code: 'INACTIVE', name: 'Ngưng tham gia' },
+    SUSPENDED: { code: 'SUSPENDED', name: 'Bị tạm khóa' },
   },
 
   /** Loại chu kỳ: monthly | quarterly | yearly | custom */
-  CycleType: {
-    MONTHLY: { code: 'monthly', name: 'Hàng tháng' },
-    QUARTERLY: { code: 'quarterly', name: 'Hàng quý' },
-    YEARLY: { code: 'yearly', name: 'Hàng năm' },
-    CUSTOM: { code: 'custom', name: 'Tùy chỉnh' },
+  CYCLE_TYPE: {
+    MONTHLY: { code: 'MONTHLY', name: 'Hàng tháng' },
+    QUARTERLY: { code: 'QUARTERLY', name: 'Hàng quý' },
+    YEARLY: { code: 'YEARLY', name: 'Hàng năm' },
+    CUSTOM: { code: 'CUSTOM', name: 'Tùy chỉnh' },
   },
 
   /** Trạng thái chu kỳ: open | collecting | closed | paid_out | cancelled */
-  CycleStatus: {
-    OPEN: { code: 'open', name: 'Đang mở' },
-    COLLECTING: { code: 'collecting', name: 'Đang thu tiền' },
-    CLOSED: { code: 'closed', name: 'Đã đóng' },
-    PAID_OUT: { code: 'paid_out', name: 'Đã giải ngân' },
-    CANCELLED: { code: 'cancelled', name: 'Đã hủy' },
+  CYCLE_STATUS: {
+    OPEN: { code: 'OPEN', name: 'Đang mở' },
+    COLLECTING: { code: 'COLLECTING', name: 'Đang thu tiền' },
+    CLOSED: { code: 'CLOSED', name: 'Đã đóng' },
+    PAID_OUT: { code: 'PAID_OUT', name: 'Đã giải ngân' },
+    CANCELLED: { code: 'CANCELLED', name: 'Đã hủy' },
   },
 
   /** Trạng thái đóng tiền: pending | paid | late | waived | overdue */
   ContributionStatus: {
-    PENDING: { code: 'pending', name: 'Chưa đóng' },
-    PAID: { code: 'paid', name: 'Đã đóng' },
-    LATE: { code: 'late', name: 'Đóng trễ' },
-    WAIVED: { code: 'waived', name: 'Được miễn' },
-    OVERDUE: { code: 'overdue', name: 'Quá hạn' },
+    PENDING: { code: 'PENDING', name: 'Chưa đóng' },
+    PAID: { code: 'PAID', name: 'Đã đóng' },
+    LATE: { code: 'LATE', name: 'Đóng trễ' },
+    WAIVED: { code: 'WAIVED', name: 'Được miễn' },
+    OVERDUE: { code: 'OVERDUE', name: 'Quá hạn' },
   },
 
   /** Phương thức thanh toán: bank_transfer | cash | qr_code */
   PaymentMethodFund: {
-    BANK_TRANSFER: { code: 'bank_transfer', name: 'Chuyển khoản ngân hàng' },
-    CASH: { code: 'cash', name: 'Tiền mặt' },
-    QR_CODE: { code: 'qr_code', name: 'Mã QR' },
-  },
-
-  /** Kênh gửi thông báo: email | sms | push  */
-  ReminderChannel: {
-    EMAIL: { code: 'email', name: 'Email' },
-    SMS: { code: 'sms', name: 'SMS' },
-    PUSH: { code: 'push', name: 'Push notification' },
+    BANK_TRANSFER: { code: 'BANK_TRANSFER', name: 'Chuyển khoản ngân hàng' },
+    CASH: { code: 'CASH', name: 'Tiền mặt' },
+    QR_CODE: { code: 'QR_CODE', name: 'Mã QR' },
   },
 
   /** Trạng thái gửi nhắc nhở: pending | sent | failed */
-  ReminderStatus: {
-    PENDING: { code: 'pending', name: 'Chờ gửi' },
-    SENT: { code: 'sent', name: 'Đã gửi' },
-    FAILED: { code: 'failed', name: 'Gửi thất bại' },
+  NOTIFY_STATUS: {
+    PENDING: { code: 'PENDING', name: 'Chờ gửi' },
+    SENT: { code: 'SENT', name: 'Đã gửi' },
+    FAILED: { code: 'FAILED', name: 'Gửi thất bại' },
   },
 
   /** Trạng thái đơn đăng ký nhận tiền: pending | reviewing | approved | rejected | paid_out | cancelled */
-  ReceiptStatus: {
-    PENDING: { code: 'pending', name: 'Chờ duyệt' },
-    REVIEWING: { code: 'reviewing', name: 'Đang xét duyệt' },
-    APPROVED: { code: 'approved', name: 'Đã duyệt' },
-    REJECTED: { code: 'rejected', name: 'Từ chối' },
-    PAID_OUT: { code: 'paid_out', name: 'Đã giải ngân' },
-    CANCELLED: { code: 'cancelled', name: 'Đã hủy' },
+  RECEIPT_STATUS: {
+    PENDING: { code: 'PENDING', name: 'Chờ duyệt' },
+    REVIEWING: { code: 'REVIEWING', name: 'Đang xét duyệt' },
+    APPROVED: { code: 'APPROVED', name: 'Đã duyệt' },
+    REJECTED: { code: 'REJECTED', name: 'Từ chối' },
+    PAID_OUT: { code: 'PAID_OUT', name: 'Đã giải ngân' },
+    CANCELLED: { code: 'CANCELLED', name: 'Đã hủy' },
   },
 
   /** Loại tài liệu đính kèm: medical | certificate | invoice | other */
-  DocumentType: {
-    MEDICAL: { code: 'medical', name: 'Giấy tờ y tế' },
-    CERTIFICATE: { code: 'certificate', name: 'Giấy chứng nhận' },
-    INVOICE: { code: 'invoice', name: 'Hóa đơn' },
-    OTHER: { code: 'other', name: 'Khác' },
+  DOCUMENT_TYPE: {
+    MEDICAL: { code: 'MEDICAL', name: 'Giấy tờ y tế' },
+    CERTIFICATE: { code: 'CERTIFICATE', name: 'Giấy chứng nhận' },
+    INVOICE: { code: 'INVOICE', name: 'Hóa đơn' },
+    OTHER: { code: 'OTHER', name: 'Khác' },
   },
 
   /** Kiểu cấp quyền đặc biệt: Allow | Deny */
-  GrantType: {
+  GRANT_TYPE: {
     ALLOW: { code: 'Allow', name: 'Cho phép' },
     DENY: { code: 'Deny', name: 'Từ chối' },
   },
 
   /** Kênh thông báo: email | sms | push | all */
-  NotifyChannel: {
-    EMAIL: { code: 'email', name: 'Email' },
-    SMS: { code: 'sms', name: 'SMS' },
-    PUSH: { code: 'push', name: 'Push notification' },
-    ALL: { code: 'all', name: 'Tất cả kênh' },
+  NOTIFY_CHANNEL: {
+    EMAIL: { code: 'EMAIL', name: 'Email' },
+    SMS: { code: 'SMS', name: 'SMS' },
+    PUSH: { code: 'PUSH', name: 'Push notification' },
+    ALL: { code: 'ALL', name: 'Tất cả kênh' },
   },
 
   /** Loại giao dịch: contribution | disbursement | fee | adjustment | refund */
-  TransactionType: {
-    CONTRIBUTION: { code: 'contribution', name: 'Thu đóng quỹ' },
-    DISBURSEMENT: { code: 'disbursement', name: 'Giải ngân' },
-    FEE: { code: 'fee', name: 'Phí' },
-    ADJUSTMENT: { code: 'adjustment', name: 'Điều chỉnh' },
-    REFUND: { code: 'refund', name: 'Hoàn tiền' },
+  TRANSACTION_TYPE: {
+    CONTRIBUTION: { code: 'CONTRIBUTION', name: 'Thu đóng quỹ' },
+    DISBURSEMENT: { code: 'DISBURSEMENT', name: 'Giải ngân' },
+    FEE: { code: 'FEE', name: 'Phí' },
+    ADJUSTMENT: { code: 'ADJUSTMENT', name: 'Điều chỉnh' },
+    REFUND: { code: 'REFUND', name: 'Hoàn tiền' },
   },
 
   /** Chiều giao dịch: in (thu) | out (chi) */
-  Direction: {
-    IN: { code: 'in', name: 'Thu vào' },
-    OUT: { code: 'out', name: 'Chi ra' },
+  TRANSACTION_DIRECTION: {
+    IN: { code: 'IN', name: 'Thu vào' },
+    OUT: { code: 'OUT', name: 'Chi ra' },
   },
 
   /** Loại file: image | video | audio | pdf | docx | spreadsheet */
-  FileType: {
-    IMAGE: { code: 'image', name: 'Hình ảnh' },
-    VIDEO: { code: 'video', name: 'Video' },
-    AUDIO: { code: 'audio', name: 'Âm thanh' },
-    PDF: { code: 'pdf', name: 'PDF' },
-    DOCX: { code: 'docx', name: 'Word' },
-    SPREADSHEET: { code: 'spreadsheet', name: 'Bảng tính' },
-  },
-
-  /** Nhà cung cấp lưu trữ: s3 | gcs | local | cloudinary */
-  StorageProvider: {
-    S3: { code: 's3', name: 'AWS S3' },
-    GCS: { code: 'gcs', name: 'Google Cloud Storage' },
-    LOCAL: { code: 'local', name: 'Máy chủ nội bộ' },
-    CLOUDINARY: { code: 'cloudinary', name: 'Cloudinary' },
-  },
-
-  /** Trạng thái đăng nhập: success | failed | blocked */
-  LoginStatus: {
-    SUCCESS: { code: 'success', name: 'Thành công' },
-    FAILED: { code: 'failed', name: 'Thất bại' },
-    BLOCKED: { code: 'blocked', name: 'Bị chặn' },
-  },
-
-  /** Loại thiết bị: web | mobile | desktop */
-  DeviceType: {
-    WEB: { code: 'web', name: 'Web' },
-    MOBILE: { code: 'mobile', name: 'Di động' },
-    DESKTOP: { code: 'desktop', name: 'Máy tính' },
-  },
-
-  /** Loại tác nhân: employee | member | admin */
-  ActorType: {
-    EMPLOYEE: { code: 'employee', name: 'Nhân viên' },
-    MEMBER: { code: 'member', name: 'Thành viên' },
-    ADMIN: { code: 'admin', name: 'Quản trị' },
-  },
-
-  /** Kiểu dữ liệu cấu hình: string | number | boolean | json */
-  SystemConfigDataType: {
-    STRING: { code: 'string', name: 'Chuỗi' },
-    NUMBER: { code: 'number', name: 'Số' },
-    BOOLEAN: { code: 'boolean', name: 'Đúng/Sai' },
-    JSON: { code: 'json', name: 'JSON' },
+  FILE_TYPE: {
+    IMAGE: { code: 'IMAGE', name: 'Hình ảnh' },
+    VIDEO: { code: 'VIDEO', name: 'Video' },
+    AUDIO: { code: 'AUDIO', name: 'Âm thanh' },
+    PDF: { code: 'PDF', name: 'PDF' },
+    DOCX: { code: 'DOCX', name: 'Word' },
+    SPREADSHEET: { code: 'SPREADSHEET', name: 'Bảng tính' },
   },
 
   /** Loại đối tượng liên quan trong thông báo: FundReceipt | Contribution | FundCycle */
-  NotificationEntityType: {
-    FUND_RECEIPT: { code: 'FundReceipt', name: 'Đơn đăng ký nhận tiền' },
-    CONTRIBUTION: { code: 'Contribution', name: 'Phiếu đóng tiền' },
-    FUND_CYCLE: { code: 'FundCycle', name: 'Chu kỳ quỹ' },
+  NOTIFICATION_ENTITY_TYPE: {
+    FUND_RECEIPT: { code: 'FUND_RECEIPT', name: 'Đơn đăng ký nhận tiền' },
+    CONTRIBUTION: { code: 'CONTRIBUTION', name: 'Phiếu đóng tiền' },
+    FUND_CYCLE: { code: 'FUND_CYCLE', name: 'Chu kỳ quỹ' },
   },
 
   /** Mã vai trò hệ thống: ADMIN | EMPLOYEE | MEMBER */
-  RoleCode: {
+  ROLE_CODE: {
     ADMIN: { code: 'ADMIN', name: 'Quản trị' },
     EMPLOYEE: { code: 'EMPLOYEE', name: 'Nhân viên' },
     MEMBER: { code: 'MEMBER', name: 'Thành viên' },
   },
 
   /** Module hệ thống */
-  SystemModule: {
+  SYSTEM_MODULE: {
     FUND: { code: 'fund', name: 'Quỹ' },
     MEMBER: { code: 'member', name: 'Thành viên' },
     NOTIFICATION: { code: 'notification', name: 'Thông báo' },

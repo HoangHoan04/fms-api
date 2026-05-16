@@ -13,7 +13,8 @@ import { FindOptionsWhere, ILike } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { ActionLogService } from '../action-log/action-log.service';
 import { ActionLogCreateDto } from '../action-log/dto';
-import { CreateFundDto, FundMemberDto, UpdateFundDto } from './dto';
+import { CreateFundMemberDto } from './dto/fund-member.dto';
+import { CreateFundDto, UpdateFundDto } from './dto/fund.dto';
 
 @Injectable()
 export class FundService {
@@ -37,10 +38,13 @@ export class FundService {
         fundCycles: true,
       },
     });
+
+    const finalData = transformKeys(result);
+
     if (!result) throw new NotFoundException('Không tìm thấy quỹ');
     return {
       message: 'Tìm kiếm quỹ thành công',
-      data: transformKeys(result),
+      data: finalData,
     };
   }
 
@@ -87,8 +91,8 @@ export class FundService {
     fund.createdAt = coreHelper.newDateTZ();
     await this.repo.save(fund);
 
-    if (createDto.members?.length) {
-      const fundMembers = createDto.members.map((m) => {
+    if (createDto.fundMembers?.length) {
+      const fundMembers = createDto.fundMembers.map((m) => {
         const fm = new FundMemberEntity();
         fm.id = uuidv4();
         fm.fundId = fund.id;
@@ -122,14 +126,14 @@ export class FundService {
     if (!fund) throw new NotFoundException('Không tìm thấy quỹ');
 
     const oldData = { ...fund };
-    const { id, members, ...rest } = updateDto;
+    const { id, fundMembers, ...rest } = updateDto;
     Object.assign(fund, rest, {
       updatedBy: user.id,
       updatedAt: coreHelper.newDateTZ(),
     });
     await this.repo.save(fund);
 
-    if (members) {
+    if (updateDto.fundMembers) {
       await this.fundMemberRepo.update(
         { fundId: fund.id, isDeleted: false },
         {
@@ -140,8 +144,8 @@ export class FundService {
         },
       );
 
-      if (members.length > 0) {
-        const fundMembers = members.map((m) => {
+      if (updateDto.fundMembers.length > 0) {
+        const fundMembers = updateDto.fundMembers.map((m) => {
           const fm = new FundMemberEntity();
           fm.id = uuidv4();
           fm.fundId = fund.id;
@@ -219,7 +223,7 @@ export class FundService {
 
   // ===== Fund Members =====
 
-  async addMember(user: UserDto, dto: FundMemberDto) {
+  async addMember(user: UserDto, dto: CreateFundMemberDto) {
     const fund = await this.repo.findOne({ where: { id: dto.fundId } });
     if (!fund) throw new NotFoundException('Không tìm thấy quỹ');
 

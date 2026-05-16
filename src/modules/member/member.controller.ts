@@ -5,15 +5,9 @@ import {
 } from '@/common/decorators';
 import { JwtAuthGuard, PermissionGuard, RoleGuard } from '@/common/guards';
 import { IdDto, PaginationDto, UserDto } from '@/dto';
-import {
-  Body,
-  Controller,
-  NotFoundException,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { CreateMemberDto, UpdateMemberAvatarDto, UpdateMemberDto } from './dto';
+import { CreateMemberDto, UpdateMemberDto } from './dto';
 import { MemberService } from './member.service';
 
 @ApiTags('Member')
@@ -45,7 +39,7 @@ export class MemberController {
   @RequireRoles('ADMIN')
   @RequirePermissions(['MEMBER:VIEW_LIST'])
   @ApiOperation({ summary: 'Danh sách cho selectbox' })
-  @Post('selectbox')
+  @Post('select-box')
   async selectbox() {
     return await this.service.selectBox();
   }
@@ -84,25 +78,5 @@ export class MemberController {
   @Post('activate')
   async activate(@Body() data: { id: string }, @CurrentUser() user: UserDto) {
     return await this.service.activate(user, data.id);
-  }
-
-  @ApiOperation({ summary: 'Cập nhật Profile cá nhân' })
-  @Post('update-profile')
-  async updateProfile(
-    @Body() data: UpdateMemberDto,
-    @CurrentUser() user: UserDto,
-  ) {
-    if (!user.memberId)
-      throw new NotFoundException('Không tìm thấy profile thành viên');
-    return await this.service.update(user, { ...data, id: user.memberId });
-  }
-
-  @ApiOperation({ summary: 'Cập nhật ảnh đại diện' })
-  @Post('update-avatar')
-  async updateAvatar(
-    @Body() data: UpdateMemberAvatarDto,
-    @CurrentUser() user: UserDto,
-  ) {
-    return await this.service.updateAvatar(user, data);
   }
 }

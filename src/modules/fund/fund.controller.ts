@@ -7,7 +7,7 @@ import { JwtAuthGuard, PermissionGuard, RoleGuard } from '@/common/guards';
 import { IdDto, PaginationDto, UserDto } from '@/dto';
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { CreateFundDto, FundMemberDto, UpdateFundDto } from './dto';
+import { CreateFundDto, UpdateFundDto } from './dto/fund.dto';
 import { FundService } from './fund.service';
 
 @ApiTags('Fund')

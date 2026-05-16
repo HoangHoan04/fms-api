@@ -1,8 +1,8 @@
-import { ApiProperty } from '@nestjs/swagger';
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { transformer } from '../../helpers';
 import { BaseEntity } from '../base.entity';
-import { FundMemberEntity } from './fund-member.entity';
 import { FundCycleEntity } from './fund-cycle.entity';
+import { FundMemberEntity } from './fund-member.entity';
 import { FundReceiptEntity } from './fund-receipt.entity';
 
 /** Lịch sử nhận tiền của một thành viên qua các chu kỳ (tổng hợp) */
@@ -30,7 +30,12 @@ export class MemberReceiptHistoryEntity extends BaseEntity {
   receipt?: FundReceiptEntity;
 
   /** Số tiền thực nhận */
-  @Column({ type: 'decimal', precision: 18, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    transformer: transformer,
+  })
   receivedAmount: number;
 
   /** Thời điểm nhận */

@@ -1,12 +1,11 @@
-import { Module } from '@nestjs/common';
-import { TypeOrmExModule } from '@/typeorm';
 import {
-  FundReceiptRepository,
-  FundReceiptDocumentRepository,
   FundReceiptApprovalRepository,
+  FundReceiptRepository,
 } from '@/repositories';
-import { FileArchivalModule } from '../file-archival/file-archival.module';
+import { TypeOrmExModule } from '@/typeorm';
+import { Module } from '@nestjs/common';
 import { ActionLogModule } from '../action-log/action-log.module';
+import { FileArchivalModule } from '../file-archival/file-archival.module';
 import { ReceiptController } from './receipt.controller';
 import { ReceiptService } from './receipt.service';
 
@@ -14,7 +13,6 @@ import { ReceiptService } from './receipt.service';
   imports: [
     TypeOrmExModule.forCustomRepository([
       FundReceiptRepository,
-      FundReceiptDocumentRepository,
       FundReceiptApprovalRepository,
     ]),
     FileArchivalModule,

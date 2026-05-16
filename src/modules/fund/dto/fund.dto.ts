@@ -1,28 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsArray,
+  IsDateString,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
-  IsNumber,
-  IsDateString,
   Min,
-  ValidateNested,
-  IsArray,
 } from 'class-validator';
-import { Type } from 'class-transformer';
-
-class FundMemberEntryDto {
-  @ApiProperty({ description: 'ID thành viên' })
-  @IsUUID()
-  @IsNotEmpty()
-  memberId: string;
-
-  @ApiPropertyOptional({ description: 'Ghi chú' })
-  @IsOptional()
-  @IsString()
-  note?: string;
-}
+import { CreateFundMemberDto } from './fund-member.dto';
 
 export class CreateFundDto {
   @ApiProperty({ description: 'Tên quỹ' })
@@ -40,24 +27,17 @@ export class CreateFundDto {
   @Min(0)
   contributionAmount: number;
 
-  @ApiProperty({
-    description: 'Loại chu kỳ: monthly | quarterly | yearly | custom',
-  })
+  @ApiProperty({ description: 'Loại chu kỳ' })
   @IsString()
   @IsNotEmpty()
   cycleType: string;
 
-  @ApiPropertyOptional({
-    description: 'Số ngày mỗi chu kỳ (dùng khi cycleType = custom)',
-  })
+  @ApiPropertyOptional({ description: 'Số ngày mỗi chu kỳ ' })
   @IsOptional()
   @IsNumber()
   cycleDurationDays?: number;
 
-  @ApiPropertyOptional({
-    description: 'Số thành viên tối đa được nhận tiền mỗi kỳ',
-    default: 1,
-  })
+  @ApiPropertyOptional({ description: 'Số thành viên tối đa được nhận' })
   @IsOptional()
   @IsNumber()
   maxRecipientPerCycle?: number;
@@ -82,15 +62,10 @@ export class CreateFundDto {
   @IsUUID()
   managedBy?: string;
 
-  @ApiPropertyOptional({
-    description: 'Danh sách thành viên tham gia quỹ khi tạo',
-    type: [FundMemberEntryDto],
-  })
+  @ApiPropertyOptional({ description: 'Danh sách thành viên tham ' })
   @IsOptional()
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => FundMemberEntryDto)
-  members?: FundMemberEntryDto[];
+  fundMembers?: CreateFundMemberDto[];
 }
 
 export class UpdateFundDto extends CreateFundDto {
@@ -119,21 +94,4 @@ export class FilterFundDto {
   @ApiPropertyOptional({ description: 'Trạng thái xóa mềm' })
   @IsOptional()
   isDeleted?: boolean;
-}
-
-export class FundMemberDto {
-  @ApiProperty({ description: 'ID quỹ' })
-  @IsUUID()
-  @IsNotEmpty()
-  fundId: string;
-
-  @ApiProperty({ description: 'ID thành viên' })
-  @IsUUID()
-  @IsNotEmpty()
-  memberId: string;
-
-  @ApiPropertyOptional({ description: 'Ghi chú' })
-  @IsOptional()
-  @IsString()
-  note?: string;
 }

@@ -1,4 +1,3 @@
-import { ApiProperty } from '@nestjs/swagger';
 import {
   Column,
   Entity,
@@ -7,10 +6,11 @@ import {
   ManyToOne,
   OneToMany,
 } from 'typeorm';
+import { transformer } from '../../helpers';
 import { BaseEntity } from '../base.entity';
 import { EmployeeEntity } from '../users/employee.entity';
-import { FundMemberEntity } from './fund-member.entity';
 import { FundCycleEntity } from './fund-cycle.entity';
+import { FundMemberEntity } from './fund-member.entity';
 import { FundTransactionEntity } from './fund-transaction.entity';
 
 /** Quỹ nhóm – thông tin chung về quỹ */
@@ -30,7 +30,12 @@ export class FundEntity extends BaseEntity {
   description?: string;
 
   /** Số tiền mỗi thành viên đóng mỗi kỳ (VND) */
-  @Column({ type: 'decimal', precision: 18, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    transformer: transformer,
+  })
   contributionAmount: number;
 
   /** Đơn vị tiền tệ (mặc định VND) */

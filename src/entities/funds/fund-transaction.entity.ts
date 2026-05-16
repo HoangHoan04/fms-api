@@ -1,9 +1,9 @@
-import { ApiProperty } from '@nestjs/swagger';
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { transformer } from '../../helpers';
 import { BaseEntity } from '../base.entity';
-import { FundEntity } from './fund.entity';
-import { FundCycleEntity } from './fund-cycle.entity';
 import { UserEntity } from '../users/user.entity';
+import { FundCycleEntity } from './fund-cycle.entity';
+import { FundEntity } from './fund.entity';
 
 /** Sổ thu chi – ghi nhận mọi dòng tiền vào/ra của quỹ */
 @Entity('fund-transactions')
@@ -31,15 +31,32 @@ export class FundTransactionEntity extends BaseEntity {
   direction: string;
 
   /** Số tiền giao dịch */
-  @Column({ type: 'decimal', precision: 18, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    transformer: transformer,
+  })
   amount: number;
 
   /** Số dư trước giao dịch */
-  @Column({ type: 'decimal', precision: 18, scale: 2, nullable: true })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    nullable: true,
+    transformer: transformer,
+  })
   balanceBefore?: number;
 
   /** Số dư sau giao dịch */
-  @Column({ type: 'decimal', precision: 18, scale: 2, nullable: true })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    nullable: true,
+    transformer: transformer,
+  })
   balanceAfter?: number;
 
   /** UUID tham chiếu (Contribution.id hoặc Disbursement.id) */

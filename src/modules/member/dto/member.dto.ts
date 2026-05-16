@@ -5,9 +5,11 @@ import {
   IsArray,
   IsNotEmpty,
   IsOptional,
+  IsString,
+  IsUUID,
   ValidateNested,
 } from 'class-validator';
-import { CreateMemberBankAccountDto } from './create-member-bank-account.dto';
+import { CreateMemberBankAccountDto } from './member-bank-account.dto';
 
 export class CreateMemberDto {
   @ApiProperty({ description: 'Họ tên đầy đủ của thành viên' })
@@ -53,4 +55,41 @@ export class CreateMemberDto {
   @ApiPropertyOptional({ description: 'URL avatar của thành viên' })
   @IsOptional()
   avatar?: FileDto[];
+}
+
+export class UpdateMemberDto extends CreateMemberDto {
+  @ApiProperty({ description: 'ID thành viên' })
+  @IsUUID()
+  id: string;
+}
+
+export class FilterMemberDto {
+  @ApiPropertyOptional({ description: 'Mã thành viên' })
+  @IsOptional()
+  @IsString()
+  code?: string;
+
+  @ApiPropertyOptional({ description: 'Tên thành viên' })
+  @IsOptional()
+  @IsString()
+  fullName?: string;
+
+  @ApiPropertyOptional({ description: 'Số điện thoại' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiPropertyOptional({ description: 'Giới tính' })
+  @IsOptional()
+  @IsString()
+  gender?: string;
+
+  @ApiPropertyOptional({ description: 'Email' })
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @ApiPropertyOptional({ description: 'Trạng thái' })
+  @IsOptional()
+  isDeleted?: boolean;
 }

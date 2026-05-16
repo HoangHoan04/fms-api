@@ -25,6 +25,7 @@ export class DisbursementConfirmationEntity extends BaseEntity {
   @JoinColumn({ name: 'confirmedBy' })
   confirmer?: MemberEntity;
 
+  /** Các file chứng minh đã nhận tiền */
   @OneToMany(() => FileArchivalEntity, (p) => p.disbursementConfirmation)
   proofFile: Promise<FileArchivalEntity[]>;
 

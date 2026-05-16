@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { transformer } from '../../helpers';
 import { BaseEntity } from '../base.entity';
 import { FundCycleEntity } from './fund-cycle.entity';
 
@@ -30,19 +30,43 @@ export class FundCycleSummaryEntity extends BaseEntity {
   totalLate?: number;
 
   /** Tổng tiền kỳ vọng thu */
-  @Column({ type: 'decimal', precision: 18, scale: 2, nullable: true })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    nullable: true,
+    transformer: transformer,
+  })
   amountExpected?: number;
 
   /** Tổng tiền thực thu */
-  @Column({ type: 'decimal', precision: 18, scale: 2, nullable: true })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    nullable: true,
+    transformer: transformer,
+  })
   amountCollected?: number;
 
   /** Tổng tiền đã giải ngân */
-  @Column({ type: 'decimal', precision: 18, scale: 2, nullable: true })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    nullable: true,
+    transformer: transformer,
+  })
   amountDisbursed?: number;
 
   /** Số dư còn lại sau kỳ */
-  @Column({ type: 'decimal', precision: 18, scale: 2, nullable: true })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    nullable: true,
+    transformer: transformer,
+  })
   amountBalance?: number;
 
   /** Số người nhận tiền kỳ này */

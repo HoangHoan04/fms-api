@@ -8,7 +8,6 @@ import {
   FundEntity,
   FundMemberEntity,
   FundReceiptApprovalEntity,
-  FundReceiptDocumentEntity,
   FundReceiptEntity,
   FundTransactionEntity,
   MemberReceiptHistoryEntity,
@@ -33,9 +32,6 @@ export class ContributionReminderRepository extends Repository<ContributionRemin
 
 @CustomRepository(FundReceiptEntity)
 export class FundReceiptRepository extends Repository<FundReceiptEntity> {}
-
-@CustomRepository(FundReceiptDocumentEntity)
-export class FundReceiptDocumentRepository extends Repository<FundReceiptDocumentEntity> {}
 
 @CustomRepository(FundReceiptApprovalEntity)
 export class FundReceiptApprovalRepository extends Repository<FundReceiptApprovalEntity> {}

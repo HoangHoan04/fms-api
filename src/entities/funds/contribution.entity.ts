@@ -1,11 +1,11 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { transformer } from '@/helpers';
 import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 import { BaseEntity } from '../base.entity';
+import { FileArchivalEntity } from '../file-archival.entity';
+import { EmployeeEntity } from '../users/employee.entity';
+import { ContributionReminderEntity } from './contribution-reminder.entity';
 import { FundCycleEntity } from './fund-cycle.entity';
 import { FundMemberEntity } from './fund-member.entity';
-import { EmployeeEntity } from '../users/employee.entity';
-import { FileArchivalEntity } from '../file-archival.entity';
-import { ContributionReminderEntity } from './contribution-reminder.entity';
 
 /** Phiếu đóng tiền của từng thành viên trong mỗi chu kỳ */
 @Entity('contributions')
@@ -25,11 +25,21 @@ export class ContributionEntity extends BaseEntity {
   fundMember: FundMemberEntity;
 
   /** Số tiền đóng thực tế */
-  @Column({ type: 'decimal', precision: 18, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    transformer: transformer,
+  })
   amount: number;
 
   /** Số tiền cần đóng theo quy định kỳ này */
-  @Column({ type: 'decimal', precision: 18, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    transformer: transformer,
+  })
   requiredAmount: number;
 
   /** Thời điểm xác nhận đã nhận được tiền */
@@ -68,7 +78,13 @@ export class ContributionEntity extends BaseEntity {
   lateDays: number;
 
   /** Phí phạt trễ hạn (nếu có quy định) */
-  @Column({ type: 'decimal', precision: 18, scale: 2, default: 0 })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    default: 0,
+    transformer: transformer,
+  })
   lateFee: number;
 
   /** Nhân viên xác nhận đã nhận tiền */

@@ -1,20 +1,19 @@
 import { enumData } from '@/common/contanst/enumData';
-import { coreHelper } from '@/helpers';
 import { IdDto, PaginationDto, UserDto } from '@/dto';
-import { FundReceiptEntity, FundReceiptApprovalEntity } from '@/entities';
+import { FundReceiptApprovalEntity, FundReceiptEntity } from '@/entities';
+import { coreHelper } from '@/helpers';
 import {
-  FundReceiptRepository,
-  FundReceiptDocumentRepository,
   FundReceiptApprovalRepository,
+  FundReceiptRepository,
 } from '@/repositories';
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
+import { customAlphabet } from 'nanoid';
 import { FindOptionsWhere } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
-import { customAlphabet } from 'nanoid';
 import { ActionLogService } from '../action-log/action-log.service';
 import { ActionLogCreateDto } from '../action-log/dto';
 import { ApproveReceiptDto, CreateReceiptDto, RejectReceiptDto } from './dto';
@@ -23,7 +22,6 @@ import { ApproveReceiptDto, CreateReceiptDto, RejectReceiptDto } from './dto';
 export class ReceiptService {
   constructor(
     private readonly repo: FundReceiptRepository,
-    private readonly documentRepo: FundReceiptDocumentRepository,
     private readonly approvalRepo: FundReceiptApprovalRepository,
     private readonly actionLogService: ActionLogService,
   ) {}

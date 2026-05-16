@@ -18,7 +18,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ActionLogService } from '../action-log/action-log.service';
 import { ActionLogCreateDto } from '../action-log/dto';
 import { FileArchivalService } from '../file-archival/file-archival.service';
-import { CreateMemberDto, UpdateMemberAvatarDto, UpdateMemberDto } from './dto';
+import { CreateMemberDto, UpdateMemberDto } from './dto';
 
 @Injectable()
 export class MemberService {
@@ -510,24 +510,5 @@ export class MemberService {
 
     const filtered = res.filter((s) => s.id !== user.memberId);
     return filtered;
-  }
-
-  async updateAvatar(user: UserDto, data: UpdateMemberAvatarDto) {
-    const member = await this.repo.findOne({
-      where: { id: user.memberId },
-    });
-    if (!member) throw new NotFoundException('Không tìm thấy thành viên');
-
-    await this.fileArchivalService.removeByFk('memberId', member.id);
-
-    await this.fileArchivalService.create({
-      fileUrl: data.avatarUrl,
-      fileName: `avatar_${member.code}`,
-      fileType: 'MEMBER_AVATAR',
-      memberId: member.id,
-      createdBy: user.id,
-    });
-
-    return { message: 'Cập nhật ảnh đại diện thành công' };
   }
 }

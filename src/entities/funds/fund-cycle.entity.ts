@@ -1,4 +1,3 @@
-import { ApiProperty } from '@nestjs/swagger';
 import {
   Column,
   Entity,
@@ -7,12 +6,13 @@ import {
   ManyToOne,
   OneToMany,
 } from 'typeorm';
+import { transformer } from '../../helpers';
 import { BaseEntity } from '../base.entity';
-import { FundEntity } from './fund.entity';
 import { ContributionEntity } from './contribution.entity';
-import { FundReceiptEntity } from './fund-receipt.entity';
 import { DisbursementEntity } from './disbursement.entity';
 import { FundCycleSummaryEntity } from './fund-cycle-summary.entity';
+import { FundReceiptEntity } from './fund-receipt.entity';
+import { FundEntity } from './fund.entity';
 
 /** Chu kỳ đóng quỹ – mỗi bản ghi đại diện cho một kỳ thu */
 @Entity('fund-cycles')
@@ -50,19 +50,42 @@ export class FundCycleEntity extends BaseEntity {
   payoutDate?: Date;
 
   /** Số tiền mỗi thành viên cần đóng kỳ này */
-  @Column({ type: 'decimal', precision: 18, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    transformer: transformer,
+  })
   contributionAmount: number;
 
   /** Tổng tiền dự kiến thu được */
-  @Column({ type: 'decimal', precision: 18, scale: 2, nullable: true })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    nullable: true,
+    transformer: transformer,
+  })
   totalExpected?: number;
 
   /** Tổng tiền đã thu được thực tế */
-  @Column({ type: 'decimal', precision: 18, scale: 2, default: 0 })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    default: 0,
+    transformer: transformer,
+  })
   totalCollected: number;
 
   /** Tổng tiền đã giải ngân cho người nhận */
-  @Column({ type: 'decimal', precision: 18, scale: 2, default: 0 })
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    default: 0,
+    transformer: transformer,
+  })
   totalPaidOut: number;
 
   /** Trạng thái: open | collecting | closed | paid_out | cancelled */
