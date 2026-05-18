@@ -1,578 +1,484 @@
 // ============================================================
-// SCHEMA: Hệ thống quỹ nhóm
-// Tính năng: Đăng ký nhận quỹ, quản lý thành viên, chu kỳ quỹ,
-//            đóng tiền, thông báo, audit trail
-// Convention: uuid PK, soft-delete (isDeleted), full audit trail
-//             (createdAt/By, updatedAt/By)
+// SCHEMA: HuiApp – Hệ thống quản lý hụi & sinh nhật nhóm bạn (Single Group)
+// Tech: NestJS + PostgreSQL + TypeORM
+// Convention:
+//   - UUID primary key (tự sinh)
+//   - Soft-delete: isDeleted = true thay vì xóa vật lý
+//   - Full audit trail: createdAt/createdBy, updatedAt/updatedBy
+//   - Số tiền dùng decimal(18,2), đơn vị VND
 // ============================================================
 
-
 // ============================================================
-// NHÓM 1: TÀI KHOẢN & PHÂN QUYỀN
+// NHÓM 1: TÀI KHOẢN & THÀNH VIÊN
 // ============================================================
 
-// Bảng tài khoản người dùng – dùng để xác thực, phân quyền
+// Tài khoản đăng nhập
 Table Users {
-  id                uuid        [pk, not null, unique]                // Khóa chính, tự sinh UUID
-  code              varchar(50) [unique]                               // Mã định danh ngắn gọn (VD: USR-0001)
-  email             varchar(255)[unique]                               // Email đăng nhập – phải là duy nhất
-  username          varchar(100)[unique]                               // Tên đăng nhập
-  password          varchar(255)                                       // Mật khẩu đã hash (bcrypt/argon2)
-  loginProvider     varchar(50)                                        // Phương thức đăng nhập: local | google | facebook
-  googleId          varchar(255)                                       // ID từ Google OAuth (nếu dùng Google login)
-  facebookId        varchar(255)                                       // ID từ Facebook OAuth (nếu dùng Facebook login)
-  isVerified        bool        [default: false]                       // Đã xác thực email chưa
-  isAdmin           bool        [default: false]                       // Tài khoản có quyền quản trị hệ thống không
-  lastLoginAt       datetime                                           // Thời điểm đăng nhập gần nhất
+  id             uuid        [pk, not null, unique]
+  code           varchar(50) [unique]               // Mã định danh ngắn gọn (VD: USR-0001)
+  email          varchar(255)[unique]               // Email đăng nhập
+  username       varchar(100)[unique]               // Tên đăng nhập
+  password       varchar(255)                       // Mật khẩu đã hash
+  loginProvider  varchar(50)                        // local | google | facebook
+  googleId       varchar(255)
+  facebookId     varchar(255)
+  isVerified     bool        [default: false]
+  isAdmin        bool        [default: false]       // Hoàn (Admin) hoặc phó nhóm được phân quyền
+  lastLoginAt    datetime
 
-  isDeleted         bool        [default: false]                       // Soft delete – không xóa vật lý
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid                                               // UUID của user thực hiện tạo
-  updatedAt         datetime
-  updatedBy         uuid
+  isDeleted      bool        [default: false]
+  createdAt      datetime    [default: `now()`]
+  createdBy      uuid
+  updatedAt      datetime
+  updatedBy      uuid
 }
 
-// Danh sách quyền hạn cụ thể trong hệ thống
+// Quyền hạn cụ thể trong hệ thống
 Table Permissions {
-  id                uuid        [pk, not null, unique]
-  code              varchar(100)[unique]                               // Mã quyền, VD: FUND_CREATE, MEMBER_VIEW
-  name              varchar(255)                                       // Tên hiển thị của quyền
-  description       text                                               // Mô tả chi tiết quyền làm gì
-  module            varchar(50)                                        // Module thuộc về, VD: fund | member | report
-  action            varchar(50)                                        // Hành động, VD: create | read | update | delete
+  id           uuid        [pk, not null, unique]
+  code         varchar(100)[unique]               // VD: CYCLE_CREATE, MEMBER_VIEW, BIRTHDAY_CONFIG
+  name         varchar(255)
+  description  text
+  module       varchar(50)                        // fund | member | report | birthday
+  action       varchar(50)                        // create | read | update | delete
 
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
+  isDeleted    bool        [default: false]
+  createdAt    datetime    [default: `now()`]
+  createdBy    uuid
+  updatedAt    datetime
+  updatedBy    uuid
 }
 
-// Gán quyền cho từng Role (N-N giữa Roles và Permissions)
+// N-N giữa Roles và Permissions
 Table RolePermissions {
-  id                uuid        [pk, not null, unique]
-  roleId            uuid        [ref: > Roles.id]                     // Vai trò được gán quyền
-  permissionId      uuid        [ref: > Permissions.id]               // Quyền được gán
+  id           uuid        [pk, not null, unique]
+  roleId       uuid        [ref: > Roles.id]
+  permissionId uuid        [ref: > Permissions.id]
 
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
+  isDeleted    bool        [default: false]
+  createdAt    datetime    [default: `now()`]
+  createdBy    uuid
+  updatedAt    datetime
+  updatedBy    uuid
 }
 
-// Gán quyền đặc biệt trực tiếp cho User (override Role)
-Table UserPermissions {
-  id                uuid        [pk, not null, unique]
-  userId            uuid        [ref: > Users.id]                     // User được cấp/thu hồi quyền đặc biệt
-  permissionId      uuid        [ref: > Permissions.id]               // Quyền được thao tác
-  grantType         varchar(10)                                        // Allow (cấp thêm) | Deny (thu hồi – ưu tiên hơn Role)
-  reason            text                                               // Lý do cấp hoặc thu hồi quyền đặc biệt
-  grantedBy         uuid        [ref: > Users.id]                     // Admin thực hiện thao tác
-  expiresAt         datetime                                           // Thời hạn hiệu lực – null = vĩnh viễn
-
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
-}
-
-// Vai trò trong hệ thống (ADMIN, EMPLOYEE, MEMBER, ...)
+// Vai trò trong hệ thống (ADMIN, MEMBER)
 Table Roles {
-  id                uuid        [pk, not null, unique]
-  code              varchar(50) [unique]                               // Mã vai trò, VD: ADMIN | EMPLOYEE | MEMBER
-  name              varchar(100)[unique]                               // Tên hiển thị vai trò
-  description       text                                               // Mô tả vai trò
+  id           uuid        [pk, not null, unique]
+  code         varchar(50) [unique]               // ADMIN | MEMBER
+  name         varchar(100)[unique]
+  description  text
 
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
+  isDeleted    bool        [default: false]
+  createdAt    datetime    [default: `now()`]
+  createdBy    uuid
+  updatedAt    datetime
+  updatedBy    uuid
 }
 
-// Gán vai trò cho người dùng (N-N giữa Users và Roles)
+// N-N giữa Users và Roles
 Table UserRoles {
-  id                uuid        [pk, not null, unique]
-  userId            uuid        [ref: > Users.id]                     // User được gán vai trò
-  roleId            uuid        [ref: > Roles.id]                     // Vai trò được gán
+  id           uuid        [pk, not null, unique]
+  userId       uuid        [ref: > Users.id]
+  roleId       uuid        [ref: > Roles.id]
 
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
+  isDeleted    bool        [default: false]
+  createdAt    datetime    [default: `now()`]
+  createdBy    uuid
+  updatedAt    datetime
+  updatedBy    uuid
 }
 
-// Hồ sơ thành viên tham gia quỹ nhóm
+// Hồ sơ thành viên duy nhất của nhóm bạn
 Table Members {
-  id                uuid        [pk, not null, unique]
-  userId            uuid        [ref: - Users.id]                     // Liên kết tài khoản đăng nhập (1-1, có thể null nếu nhập tay)
-  code              varchar(50) [unique]                               // Mã thành viên, VD: MBR-0001
-  fullName          varchar(100)                                       // Họ tên đầy đủ
-  shortName         varchar(100)                                       // Tên gọi ngắn / biệt danh
-  email             varchar(255)[unique]                               // Email liên hệ
-  phone             varchar(20)                                        // Số điện thoại
-  gender            varchar(20)                                        // Giới tính: Male | Female | Other
-  birthday          date                                               // Ngày sinh
-  bankName          varchar(100)                                       // Tên ngân hàng (VD: Vietcombank, MB Bank)
-  bankAccountNo     varchar(50)                                        // Số tài khoản ngân hàng
-  bankAccountName   varchar(100)                                       // Tên chủ tài khoản (phải khớp với ngân hàng)
-  qrCodeFileId      uuid        [ref: > FileArchivals.id]             // Ảnh QR code ngân hàng để nhận chuyển khoản
-  avatarFileId      uuid        [ref: > FileArchivals.id]             // Ảnh đại diện thành viên
-  description       text                                               // Ghi chú thêm về thành viên
-  status            varchar(20) [default: 'active']                   // Trạng thái: active | inactive | suspended
+  id              uuid         [pk, not null, unique]
+  userId          uuid         [ref: - Users.id]     // Liên kết 1-1 với tài khoản (null nếu Hoàn tự add tay profile trước)
+  code            varchar(50)  [unique]              // Mã thành viên: MBR-0001 → MBR-0020
+  fullName        varchar(100)
+  nickname        varchar(50)                        // Biệt danh gọi trong nhóm
+  birthday        date         [not null]            // Ngày sinh nhật - dùng để quét chạy CronJob tự động
+  email           varchar(255) [unique]
+  phone           varchar(20)                        // Số điện thoại nhận tin SMS hoặc MoMo
+  zaloPhone       varchar(20)                        // Số điện thoại đăng ký Zalo
+  zaloUserId      varchar(100)                       // Zalo User ID nhận tin nhắn trực tiếp qua Official Account (OA)
+  momoPhone       varchar(20)
+  bankName        varchar(100)
+  bankAccountNo   varchar(50)
+  bankAccountName varchar(100)
+  qrCodeFileId    uuid         [ref: > FileArchivals.id]
+  avatarFileId    uuid         [ref: > FileArchivals.id]
+  orderIndex      int                                // Thứ tự danh sách trong nhóm hụi (1 -> 20)
+  joinDate        date                               // Ngày tham gia nhóm hụi
+  note            text
+  status          varchar(20)  [default: 'active']   // active | inactive | left
 
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
-}
-
-// Hồ sơ nhân viên quản lý hệ thống quỹ
-Table Employees {
-  id                uuid        [pk, not null, unique]
-  userId            uuid        [ref: - Users.id]                     // Liên kết tài khoản đăng nhập (1-1)
-  code              varchar(50) [unique]                               // Mã nhân viên, VD: EMP-0001
-  fullName          varchar(100)                                       // Họ tên đầy đủ
-  shortName         varchar(100)                                       // Tên gọi ngắn
-  email             varchar(255)[unique]                               // Email công việc
-  phone             varchar(20)                                        // Số điện thoại
-  gender            varchar(20)                                        // Giới tính: Male | Female | Other
-  birthday          date                                               // Ngày sinh
-  avatarFileId      uuid        [ref: > FileArchivals.id]             // Ảnh đại diện nhân viên
-  description       text                                               // Ghi chú về nhân viên
-  department        varchar(100)                                       // Phòng ban (nếu có cơ cấu tổ chức)
-  position          varchar(100)                                       // Chức vụ
-  joinDate          date                                               // Ngày bắt đầu làm việc
-  leaveDate         date                                               // Ngày nghỉ việc (null = đang làm)
-
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
+  isDeleted       bool         [default: false]
+  createdAt       datetime     [default: `now()`]
+  createdBy       uuid
+  updatedAt       datetime
+  updatedBy       uuid
 }
 
 
 // ============================================================
-// NHÓM 2: CHU KỲ QUỸ & ĐÓNG TIỀN
+// NHÓM 2: CHU KỲ HỤI (SINGLE GROUP ONLY)
 // ============================================================
 
-// Cấu hình quỹ nhóm – thông tin chung về quỹ
-Table Funds {
-  id                uuid        [pk, not null, unique]
-  code              varchar(50) [unique]                               // Mã quỹ, VD: FUND-2024
-  name              varchar(255)                                       // Tên quỹ (VD: Quỹ tương trợ nhân viên 2024)
-  description       text                                               // Mô tả mục đích, điều lệ quỹ
-  contributionAmount decimal(18,2)                                     // Số tiền mỗi thành viên đóng mỗi kỳ (VND)
-  currency          varchar(10) [default: 'VND']                      // Đơn vị tiền tệ
-  cycleType         varchar(20)                                        // Loại chu kỳ: monthly | quarterly | yearly | custom
-  cycleDurationDays int                                                // Số ngày mỗi chu kỳ (dùng khi cycleType = custom)
-  maxRecipientPerCycle int [default: 1]                               // Số thành viên tối đa được nhận tiền mỗi kỳ
-  totalMembers      int                                                // Tổng số thành viên dự kiến tham gia
-  status            varchar(20) [default: 'active']                   // Trạng thái quỹ: draft | active | paused | closed
-  startDate         date                                               // Ngày bắt đầu hoạt động của quỹ
-  endDate           date                                               // Ngày kết thúc dự kiến (null = không giới hạn)
-  managedBy         uuid        [ref: > Employees.id]                 // Nhân viên phụ trách quản lý quỹ
+// Mỗi kỳ hụi (Tháng) đại diện cho vòng đóng và gom tiền của nhóm
+Table Cycles {
+  id                 uuid          [pk, not null, unique]
+  code               varchar(50)   [unique]              // CYCLE-2026-05
+  cycleIndex         int                                 // Kỳ thứ mấy (Kỳ 1, Kỳ 2...)
+  name               varchar(255)                        // "Kỳ hụi tháng 5/2026"
+  month              int
+  year               int
+  startDate          date
+  deadlineDate       date                                // Hạn chót nộp tiền hụi
+  payoutDate         date                                // Ngày giải ngân quỹ gom cho người nhận
+  contributionAmount decimal(18,2)                       // Mức đóng cố định kỳ này (VD: 200,000.00 VND)
+  totalExpected      decimal(18,2)                       // Tổng tiền cần thu = contributionAmount * tổng active members
+  totalCollected     decimal(18,2) [default: 0]          // Thực tế đã thu
+  totalDisbursed     decimal(18,2) [default: 0]          // Thực tế đã chi cho chủ hụi kỳ này
+  receiverId         uuid          [ref: > Members.id]   // Thành viên được duyệt nhận tiền kỳ này (null nếu chưa chốt)
+  status             varchar(20)   [default: 'open']     // open | collecting | ready | paid_out | cancelled
+  note               text
 
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
+  isDeleted          bool          [default: false]
+  createdAt          datetime      [default: `now()`]
+  createdBy          uuid
+  updatedAt          datetime
+  updatedBy          uuid
 }
 
-// Danh sách thành viên tham gia một quỹ cụ thể
-Table FundMembers {
-  id                uuid        [pk, not null, unique]
-  fundId            uuid        [ref: > Funds.id]                     // Quỹ mà thành viên tham gia
-  memberId          uuid        [ref: > Members.id]                   // Thành viên tham gia
-  joinDate          date                                               // Ngày chính thức tham gia quỹ
-  leaveDate         date                                               // Ngày rời khỏi quỹ (null = đang tham gia)
-  status            varchar(20) [default: 'active']                   // Trạng thái: active | inactive | suspended
-  note              text                                               // Ghi chú đặc biệt cho thành viên này trong quỹ
 
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
-}
+// ============================================================
+// NHÓM 3: ĐÓNG TIỀN HỤI
+// ============================================================
 
-// Chu kỳ đóng quỹ – mỗi bản ghi đại diện cho một kỳ thu
-Table FundCycles {
-  id                uuid        [pk, not null, unique]
-  fundId            uuid        [ref: > Funds.id]                     // Quỹ mà chu kỳ này thuộc về
-  code              varchar(50) [unique]                               // Mã chu kỳ, VD: CYCLE-2024-01
-  cycleIndex        int                                                // Số thứ tự chu kỳ (kỳ 1, kỳ 2, ...)
-  name              varchar(255)                                       // Tên chu kỳ hiển thị, VD: "Kỳ tháng 1/2024"
-  startDate         date                                               // Ngày bắt đầu thu tiền kỳ này
-  endDate           date                                               // Hạn chót đóng tiền kỳ này
-  payoutDate        date                                               // Ngày giải ngân – ngày chuyển tiền cho người nhận
-  contributionAmount decimal(18,2)                                     // Số tiền mỗi thành viên cần đóng kỳ này
-  totalExpected     decimal(18,2)                                      // Tổng tiền dự kiến thu được (contributionAmount × số thành viên active)
-  totalCollected    decimal(18,2) [default: 0]                        // Tổng tiền đã thu được thực tế
-  totalPaidOut      decimal(18,2) [default: 0]                        // Tổng tiền đã giải ngân cho người nhận
-  status            varchar(20) [default: 'open']                     // Trạng thái: open | collecting | closed | paid_out | cancelled
-  note              text                                               // Ghi chú nội bộ về chu kỳ này
-
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
-}
-
-// Phiếu đóng tiền của từng thành viên trong mỗi chu kỳ
 Table Contributions {
-  id                uuid        [pk, not null, unique]
-  cycleId           uuid        [ref: > FundCycles.id]                // Chu kỳ mà khoản đóng này thuộc về
-  fundMemberId      uuid        [ref: > FundMembers.id]               // Thành viên thực hiện đóng tiền
-  amount            decimal(18,2)                                      // Số tiền đóng thực tế
-  requiredAmount    decimal(18,2)                                      // Số tiền cần đóng theo quy định kỳ này
-  paidAt            datetime                                           // Thời điểm xác nhận đã nhận được tiền
-  dueDate           date                                               // Hạn đóng tiền cho thành viên này
-  paymentMethod     varchar(50)                                        // Phương thức thanh toán: bank_transfer | cash | qr_code
-  transactionRef    varchar(255)                                       // Mã giao dịch ngân hàng / biên lai tham chiếu
-  proofFileId       uuid        [ref: > FileArchivals.id]             // Ảnh chứng từ / biên lai chuyển khoản
-  status            varchar(20) [default: 'pending']                  // Trạng thái: pending | paid | late | waived | overdue
-  isLate            bool        [default: false]                      // Đóng trễ so với hạn quy định không
-  lateDays          int         [default: 0]                          // Số ngày trễ so với dueDate
-  lateFee           decimal(18,2) [default: 0]                        // Phí phạt trễ hạn (nếu có quy định)
-  confirmedBy       uuid        [ref: > Employees.id]                 // Nhân viên xác nhận đã nhận tiền
-  note              text                                               // Ghi chú về khoản đóng (VD: đóng bù kỳ trước)
+  id              uuid          [pk, not null, unique]
+  cycleId         uuid          [ref: > Cycles.id]
+  memberId        uuid          [ref: > Members.id]    // Liên kết thẳng tới Member
+  requiredAmount  decimal(18,2)
+  paidAmount      decimal(18,2) [default: 0]
+  dueDate         date
+  paidAt          datetime
+  paymentMethod   varchar(30)                          // momo_auto | bank_transfer | cash
+  transactionRef  varchar(255)
+  proofFileId     uuid          [ref: > FileArchivals.id]
+  status          varchar(20)   [default: 'pending']   // pending | paid | late | waived | overdue
+  isLate          bool          [default: false]
+  lateDays        int           [default: 0]
+  lateFee         decimal(18,2) [default: 0]
+  confirmedBy     uuid          [ref: > Users.id]
+  note            text
 
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
+  isDeleted       bool          [default: false]
+  createdAt       datetime      [default: `now()`]
+  createdBy       uuid
+  updatedAt       datetime
+  updatedBy       uuid
 }
 
-// Nhắc nhở đóng tiền cho từng thành viên trong chu kỳ
+// Lịch sử gửi thông báo nhắc nhở đóng tiền
 Table ContributionReminders {
-  id                uuid        [pk, not null, unique]
-  contributionId    uuid        [ref: > Contributions.id]             // Khoản đóng tiền cần nhắc
-  reminderDate      datetime                                           // Thời điểm gửi nhắc nhở
-  channel           varchar(50)                                        // Kênh gửi: email | sms | push
-  status            varchar(20) [default: 'pending']                  // Trạng thái: pending | sent | failed
-  sentAt            datetime                                           // Thời điểm đã gửi thực tế
-  failReason        text                                               // Lý do thất bại nếu status = failed
+  id             uuid        [pk, not null, unique]
+  contributionId uuid        [ref: > Contributions.id]
+  memberId       uuid        [ref: > Members.id]
+  channel        varchar(20)                         // email | zalo | both
+  message        text
+  isAuto         bool        [default: true]
+  status         varchar(20) [default: 'pending']
+  sentAt         datetime
+  failReason     text
 
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
+  isDeleted      bool        [default: false]
+  createdAt      datetime    [default: `now()`]
+  createdBy      uuid
+  updatedAt      datetime
+  updatedBy      uuid
 }
 
 
 // ============================================================
-// NHÓM 3: ĐĂNG KÝ NHẬN TIỀN
+// NHÓM 4: ĐĂNG KÝ & GIẢI NGÂN HỤI
 // ============================================================
 
-// Đơn đăng ký nhận tiền từ quỹ trong một chu kỳ
-Table FundReceipts {
-  id                uuid        [pk, not null, unique]
-  cycleId           uuid        [ref: > FundCycles.id]                // Chu kỳ mà đơn đăng ký thuộc về
-  fundMemberId      uuid        [ref: > FundMembers.id]               // Thành viên đăng ký nhận tiền
-  code              varchar(50) [unique]                               // Mã đơn, VD: RCT-2024-001
-  reason            text                                               // Lý do xin nhận tiền quỹ (hoàn cảnh, mục đích)
-  requestedAmount   decimal(18,2)                                      // Số tiền đề nghị nhận
-  approvedAmount    decimal(18,2)                                      // Số tiền được phê duyệt (có thể khác requestedAmount)
-  priority          int         [default: 0]                           // Mức ưu tiên xét duyệt (0=bình thường, 1=ưu tiên, 2=khẩn cấp)
-  status            varchar(20) [default: 'pending']                  // Trạng thái: pending | reviewing | approved | rejected | paid_out | cancelled
-  submittedAt       datetime                                           // Thời điểm nộp đơn
-  reviewedAt        datetime                                           // Thời điểm hoàn thành xét duyệt
-  reviewedBy        uuid        [ref: > Employees.id]                 // Nhân viên thực hiện xét duyệt
-  reviewNote        text                                               // Nhận xét của người xét duyệt
-  rejectedReason    text                                               // Lý do từ chối (nếu status = rejected)
-  bankName          varchar(100)                                       // Ngân hàng nhận tiền (snapshot tại thời điểm đăng ký)
-  bankAccountNo     varchar(50)                                        // Số tài khoản nhận tiền
-  bankAccountName   varchar(100)                                       // Tên chủ tài khoản nhận tiền
+Table CycleRegistrations {
+  id                  uuid          [pk, not null, unique]
+  cycleId             uuid          [ref: > Cycles.id]
+  memberId            uuid          [ref: > Members.id]
+  code                varchar(50)   [unique]
+  reason              text
+  bankName            varchar(100)
+  bankAccountNo       varchar(50)
+  bankAccountName     varchar(100)
+  qrCodeFileId        uuid          [ref: > FileArchivals.id]
+  status              varchar(20)   [default: 'pending'] // pending | approved | rejected | cancelled
+  isFirstTime         bool          [default: false]
+  totalReceivedBefore int           [default: 0]
+  reviewedBy          uuid          [ref: > Users.id]
+  reviewedAt          datetime
+  reviewNote          text
 
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
+  isDeleted           bool          [default: false]
+  createdAt           datetime      [default: `now()`]
+  createdBy           uuid
+  updatedAt           datetime
+  updatedBy           uuid
 }
 
-// Tài liệu đính kèm cho đơn đăng ký nhận tiền (giấy tờ chứng minh)
-Table FundReceiptDocuments {
-  id                uuid        [pk, not null, unique]
-  receiptId         uuid        [ref: > FundReceipts.id]              // Đơn đăng ký mà tài liệu này đính kèm
-  fileId            uuid        [ref: > FileArchivals.id]             // File đã upload (ảnh chứng từ, giấy bệnh viện, ...)
-  documentType      varchar(50)                                        // Loại tài liệu: medical | certificate | invoice | other
-  description       varchar(255)                                       // Mô tả ngắn về tài liệu
+Table RegistrationStatusLogs {
+  id             uuid        [pk, not null, unique]
+  registrationId uuid        [ref: > CycleRegistrations.id]
+  fromStatus     varchar(20)
+  toStatus       varchar(20)
+  changedBy      uuid        [ref: > Users.id]
+  note           text
 
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
+  isDeleted      bool        [default: false]
+  createdAt      datetime    [default: `now()`]
+  createdBy      uuid
+  updatedAt      datetime
+  updatedBy      uuid
 }
 
-// Lịch sử phê duyệt / thay đổi trạng thái của đơn đăng ký nhận tiền
-Table FundReceiptApprovals {
-  id                uuid        [pk, not null, unique]
-  receiptId         uuid        [ref: > FundReceipts.id]              // Đơn đăng ký được thao tác
-  fromStatus        varchar(20)                                        // Trạng thái trước khi thay đổi
-  toStatus          varchar(20)                                        // Trạng thái sau khi thay đổi
-  actionBy          uuid        [ref: > Users.id]                     // Người thực hiện hành động
-  actionNote        text                                               // Ghi chú lý do chuyển trạng thái
-  actionAt          datetime                                           // Thời điểm thực hiện hành động
-
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
-}
-
-// Phiếu giải ngân – ghi nhận việc chuyển tiền thực tế cho người nhận
 Table Disbursements {
-  id                uuid        [pk, not null, unique]
-  receiptId         uuid        [ref: > FundReceipts.id]              // Đơn đăng ký nhận tiền được giải ngân
-  cycleId           uuid        [ref: > FundCycles.id]                // Chu kỳ giải ngân
-  amount            decimal(18,2)                                      // Số tiền thực tế đã chuyển
-  disbursedAt       datetime                                           // Thời điểm chuyển tiền
-  paymentMethod     varchar(50)                                        // Phương thức: bank_transfer | cash
-  transactionRef    varchar(255)                                       // Mã giao dịch chuyển khoản ngân hàng
-  proofFileId       uuid        [ref: > FileArchivals.id]             // Ảnh / file chứng từ chuyển tiền
-  disbursedBy       uuid        [ref: > Employees.id]                 // Nhân viên thực hiện giải ngân
-  bankName          varchar(100)                                       // Ngân hàng nhận
-  bankAccountNo     varchar(50)                                        // Số tài khoản nhận
-  bankAccountName   varchar(100)                                       // Tên chủ tài khoản nhận
-  note              text                                               // Ghi chú về lần giải ngân
+  id              uuid          [pk, not null, unique]
+  cycleId         uuid          [ref: > Cycles.id]
+  registrationId  uuid          [ref: > CycleRegistrations.id]
+  receiverId      uuid          [ref: > Members.id]
+  amount          decimal(18,2)
+  paymentMethod   varchar(30)
+  transactionRef  varchar(255)
+  proofFileId     uuid          [ref: > FileArchivals.id]
+  bankName        varchar(100)
+  bankAccountNo   varchar(50)
+  bankAccountName varchar(100)
+  disbursedBy     uuid          [ref: > Users.id]
+  disbursedAt     datetime
+  status          varchar(20)   [default: 'pending'] // pending | confirmed | disputed
+  note            text
 
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
+  isDeleted       bool          [default: false]
+  createdAt       datetime      [default: `now()`]
+  createdBy       uuid
+  updatedAt       datetime
+  updatedBy       uuid
 }
 
-// Xác nhận người nhận đã thực sự nhận được tiền
 Table DisbursementConfirmations {
-  id                uuid        [pk, not null, unique]
-  disbursementId    uuid        [ref: > Disbursements.id]             // Phiếu giải ngân cần xác nhận
-  confirmedAt       datetime                                           // Thời điểm người nhận xác nhận
-  confirmedBy       uuid        [ref: > Members.id]                   // Thành viên xác nhận đã nhận tiền
-  proofFileId       uuid        [ref: > FileArchivals.id]             // Ảnh chụp biên lai / màn hình giao dịch của người nhận
-  note              text                                               // Ghi chú xác nhận
+  id             uuid        [pk, not null, unique]
+  disbursementId uuid        [ref: > Disbursements.id]
+  confirmedBy    uuid        [ref: > Members.id]
+  confirmedAt    datetime
+  proofFileId    uuid        [ref: > FileArchivals.id]
+  note           text
 
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
-}
-
-// Lịch sử nhận tiền của một thành viên qua các chu kỳ (tổng hợp)
-Table MemberReceiptHistory {
-  id                uuid        [pk, not null, unique]
-  fundMemberId      uuid        [ref: > FundMembers.id]               // Thành viên
-  cycleId           uuid        [ref: > FundCycles.id]                // Chu kỳ đã nhận
-  receiptId         uuid        [ref: > FundReceipts.id]              // Đơn đăng ký tương ứng
-  receivedAmount    decimal(18,2)                                      // Số tiền thực nhận
-  receivedAt        datetime                                           // Thời điểm nhận
-
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
+  isDeleted      bool        [default: false]
+  createdAt      datetime    [default: `now()`]
+  createdBy      uuid
+  updatedAt      datetime
+  updatedBy      uuid
 }
 
 
 // ============================================================
-// NHÓM 4: THÔNG BÁO
+// NHÓM 5: THANH TOÁN & SỔ QUỸ (SINGLE GROUP)
 // ============================================================
 
-// Mẫu thông báo dùng để tái sử dụng nội dung theo sự kiện
+Table MomoTransactions {
+  id             uuid          [pk, not null, unique]
+  contributionId uuid          [ref: > Contributions.id]
+  disbursementId uuid          [ref: > Disbursements.id]
+  momoOrderId    varchar(255)  [unique]
+  momoRequestId  varchar(255)
+  momoTransId    varchar(255)
+  amount         decimal(18,2)
+  direction      varchar(10)                           // in | out
+  payType        varchar(30)
+  requestedAt    datetime
+  completedAt    datetime
+  status         varchar(20)   [default: 'pending']
+  resultCode     int
+  resultMessage  varchar(255)
+  rawResponse    text
+  ipnReceivedAt  datetime
+
+  isDeleted      bool          [default: false]
+  createdAt      datetime      [default: `now()`]
+  createdBy      uuid
+  updatedAt      datetime
+  updatedBy      uuid
+}
+
+// Sổ quỹ chi tiết dòng tiền vào ra
+Table FundTransactions {
+  id              uuid          [pk, not null, unique]
+  cycleId         uuid          [ref: > Cycles.id]
+  transactionType varchar(30)                          // contribution | disbursement | late_fee | adjustment
+  direction       varchar(10)                          // in | out
+  amount          decimal(18,2)
+  balanceBefore   decimal(18,2)
+  balanceAfter    decimal(18,2)
+  relatedId       uuid                                 // Link tới Contributions.id hoặc Disbursements.id
+  relatedType     varchar(50)                          // Contribution | Disbursement
+  transactionDate date
+  description     text
+  performedBy     uuid          [ref: > Users.id]
+
+  isDeleted       bool          [default: false]
+  createdAt       datetime      [default: `now()`]
+  createdBy       uuid
+  updatedAt       datetime
+  updatedBy       uuid
+}
+
+// ============================================================
+// NHÓM 6: HỆ THỐNG THÔNG BÁO LINH ĐỘNG & TỰ ĐỘNG
+// ============================================================
+
+// Mẫu thông báo cấu hình sẵn - Hỗ trợ render động dynamic content theo từng sự kiện
 Table NotificationTemplates {
-  id                uuid        [pk, not null, unique]
-  code              varchar(100)[unique]                               // Mã mẫu, VD: CONTRIBUTION_REMINDER | RECEIPT_APPROVED
-  title             varchar(255)                                       // Tiêu đề mẫu thông báo (có thể chứa biến {{name}})
-  body              text                                               // Nội dung mẫu (hỗ trợ biến động {{amount}}, {{cycle}}, ...)
-  channel           varchar(50)                                        // Kênh gửi mặc định: email | sms | push | all
-  eventType         varchar(100)                                       // Loại sự kiện kích hoạt mẫu này
+  id          uuid         [pk, not null, unique]
+  code        varchar(100) [unique] 
+  // Định nghĩa các mã sự kiện nghiệp vụ cố định:
+  // -- SINH NHẬT --
+  // UPCOMING_BIRTHDAY       = Thông báo cho cả nhóm biết sắp đến sinh nhật thành viên
+  // BIRTHDAY_CONGRATS       = Hệ thống chúc mừng sinh nhật trực tiếp thành viên lúc 00:00
+  // -- ĐÓNG TIỀN / NẠP TIỀN --
+  // CONTRIBUTION_OPENED     = Mở kỳ hụi mới, thông báo nạp tiền hàng tháng
+  // CONTRIBUTION_REMIND     = Nhắc nhở nạp tiền khi sắp đến hạn chót
+  // CONTRIBUTION_CONFIRMED  = Xác nhận đóng tiền hụi thành công (Hoàn đã nhận được tiền)
+  // -- QUÁ HẠN --
+  // CONTRIBUTION_OVERDUE   = Thông báo cảnh báo khoản nộp đã quá hạn quy định
+  // -- GIẢI NGÂN HỤI --
+  // DISBURSEMENT_PAIDOUT    = Thông báo đã chuyển tiền hụi cho người nhận thu quỹ kỳ này
 
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
+  name        varchar(255)          // Tên hiển thị gợi nhớ (VD: "Mẫu nhắc nạp tiền hụi")
+  title       varchar(255)          // Tiêu đề mẫu (VD: "[HuiApp] Nhắc đóng tiền kỳ {{cycle_name}}")
+  body        text                  // Nội dung chứa placeholders (VD: "Chào {{nickname}}, số tiền cần nạp là {{amount}} trước ngày {{deadline}}.")
+  channel     varchar(20)           // Kênh mặc định: email | zalo | sms | in_app | broadcast_group
+  isActive    bool         [default: true] // Bật/tắt mẫu thông báo này
+
+  isDeleted   bool         [default: false]
+  createdAt   datetime     [default: `now()`]
+  createdBy   uuid
+  updatedAt   datetime
+  updatedBy   uuid
 }
 
-// Bản ghi thông báo thực tế gửi đến người dùng
+// Nhật ký lưu vết và trạng thái gửi thông báo thực tế
 Table Notifications {
   id                uuid        [pk, not null, unique]
-  userId            uuid        [ref: > Users.id]                     // Người nhận thông báo
-  templateId        uuid        [ref: > NotificationTemplates.id]     // Mẫu thông báo đã dùng (null nếu tạo thủ công)
-  title             varchar(255)                                       // Tiêu đề sau khi đã thay biến
-  body              text                                               // Nội dung sau khi đã thay biến
-  payload           jsonb                                              // Dữ liệu bổ sung: {"receiptId": "...", "cycleId": "..."}
-  channel           varchar(50)                                        // Kênh đã gửi: email | sms | push
-  isRead            bool        [default: false]                       // Người dùng đã đọc chưa
-  readAt            datetime                                           // Thời điểm đọc
-  sentAt            datetime                                           // Thời điểm gửi thực tế
-  failReason        text                                               // Lý do thất bại nếu gửi không thành công
-  relatedEntityType varchar(50)                                        // Loại đối tượng liên quan: FundReceipt | Contribution | FundCycle
-  relatedEntityId   uuid                                               // UUID của đối tượng liên quan (để deep-link)
+  templateId        uuid        [ref: > NotificationTemplates.id, null] // null nếu là thông báo admin tự viết tay bất chợt
+  
+  // Đối tượng nhận thông báo
+  recipientType     varchar(20) [default: 'personal'] // loại nhận: personal (cá nhân cụ thể) | group_broadcast (bắn chung cả nhóm xem)
+  userId            uuid        [ref: > Users.id, null] // null nếu recipientType = 'group_broadcast'
+  
+  // Nội dung thực tế sau khi Backend đã compile từ template và bind data (truyền biến) vào
+  title             varchar(255)
+  body              text
+  
+  // Cấu hình kênh gửi thực tế của job đó
+  channel           varchar(20)                                 // email | zalo | sms | in_app
+  isRead            bool        [default: false]                // Đánh dấu trạng thái đọc (chỉ áp dụng cho in_app hoặc trên giao diện hệ thống)
+  readAt            datetime    [null]
+  
+  // Trạng thái hàng đợi và kết quả gửi qua cổng API bên thứ 3 (Zalo OA, SMS Gateway,...)
+  status            varchar(20) [default: 'pending']           // pending | processing | sent | failed
+  sentAt            datetime    [null]                          // Thời điểm gửi thành công thực tế
+  failReason        text        [null]                          // Nhật ký lỗi chi tiết từ API nhà mạng/Zalo nếu gửi thất bại
+  
+  // Hệ thống định tuyến (Routing & Deep-linking) để người dùng bấm vào thông báo là nhảy đến đúng màn hình nghiệp vụ
+  relatedEntityType varchar(50)                                 // Phân loại: Member | Cycle | Contribution | Disbursement
+  relatedEntityId   uuid                                        // ID chính xác của bản ghi liên quan (VD: ID của khoản Contribution bị trễ hạn)
 
   isDeleted         bool        [default: false]
   createdAt         datetime    [default: `now()`]
   createdBy         uuid
-  updatedAt         datetime
+  updatedAt         datetime    
   updatedBy         uuid
 }
-
 
 // ============================================================
-// NHÓM 5: BÁO CÁO & THỐNG KÊ (TỔNG HỢP)
+// NHÓM 7: HỆ THỐNG TRUY VẾT & AUDIT
 // ============================================================
 
-// Snapshot tổng kết tài chính của quỹ sau mỗi chu kỳ
-Table FundCycleSummaries {
-  id                uuid        [pk, not null, unique]
-  cycleId           uuid        [ref: > FundCycles.id]                // Chu kỳ được tổng kết
-  totalMembers      int                                                // Tổng số thành viên active trong kỳ
-  totalPaid         int                                                // Số thành viên đã đóng tiền
-  totalUnpaid       int                                                // Số thành viên chưa đóng tiền
-  totalLate         int                                                // Số thành viên đóng trễ
-  amountExpected    decimal(18,2)                                      // Tổng tiền kỳ vọng thu
-  amountCollected   decimal(18,2)                                      // Tổng tiền thực thu
-  amountDisbursed   decimal(18,2)                                      // Tổng tiền đã giải ngân
-  amountBalance     decimal(18,2)                                      // Số dư còn lại sau kỳ
-  totalRecipients   int                                                // Số người nhận tiền kỳ này
-  generatedAt       datetime                                           // Thời điểm snapshot được tạo
-  note              text                                               // Ghi chú tổng kết
-
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
-}
-
-// Sổ thu chi – ghi nhận mọi dòng tiền vào/ra của quỹ
-Table FundTransactions {
-  id                uuid        [pk, not null, unique]
-  fundId            uuid        [ref: > Funds.id]                     // Quỹ liên quan
-  cycleId           uuid        [ref: > FundCycles.id]                // Chu kỳ liên quan (null nếu giao dịch ngoài kỳ)
-  transactionType   varchar(50)                                        // Loại: contribution | disbursement | fee | adjustment | refund
-  direction         varchar(10)                                        // Chiều: in (thu vào) | out (chi ra)
-  amount            decimal(18,2)                                      // Số tiền giao dịch
-  balanceBefore     decimal(18,2)                                      // Số dư trước giao dịch
-  balanceAfter      decimal(18,2)                                      // Số dư sau giao dịch
-  relatedId         uuid                                               // UUID tham chiếu (Contribution.id hoặc Disbursement.id)
-  relatedType       varchar(50)                                        // Loại đối tượng tham chiếu
-  transactionDate   date                                               // Ngày giao dịch
-  description       text                                               // Mô tả giao dịch
-  performedBy       uuid        [ref: > Users.id]                     // Người thực hiện / xác nhận giao dịch
-
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
-}
-
-
-// ============================================================
-// NHÓM 13: HỆ THỐNG & TIỆN ÍCH
-// ============================================================
-
-// Ghi lại lịch sử đăng nhập của toàn bộ người dùng (nhân viên & thành viên)
-Table LoginLogs {
-  id                uuid        [pk, not null, unique]
-  userId            uuid        [ref: > Users.id]                     // Tài khoản thực hiện đăng nhập
-  actorType         varchar(20)                                        // Loại người dùng: employee | member | admin
-  actorId           uuid                                               // UUID hồ sơ tương ứng (Employees.id hoặc Members.id)
-  loginProvider     varchar(50)                                        // Phương thức đăng nhập: local | google | facebook
-  status            varchar(20)                                        // Kết quả: success | failed | blocked
-  failReason        varchar(100)                                       // Lý do thất bại: wrong_password | not_verified | account_locked | ...
-  ipAddress         varchar(50)                                        // Địa chỉ IP của thiết bị đăng nhập
-  userAgent         varchar(500)                                       // Thông tin trình duyệt / app (VD: Chrome 124, iOS Safari)
-  deviceType        varchar(20)                                        // Loại thiết bị: web | mobile | desktop
-  os                varchar(50)                                        // Hệ điều hành: Windows | macOS | Android | iOS
-  browser           varchar(50)                                        // Tên trình duyệt: Chrome | Firefox | Safari | ...
-  country           varchar(50)                                        // Quốc gia (resolve từ IP, VD: Vietnam)
-  city              varchar(100)                                       // Thành phố (resolve từ IP, VD: Ho Chi Minh City)
-  sessionId         varchar(255)                                       // ID phiên đăng nhập (JWT jti hoặc session token hash)
-  loggedInAt        datetime                                           // Thời điểm đăng nhập
-  loggedOutAt       datetime                                           // Thời điểm đăng xuất (null = chưa logout hoặc session hết hạn)
-  sessionDuration   int                                                // Thời gian phiên làm việc tính bằng giây (tính khi logout)
-  isForced          bool        [default: false]                       // Bị đăng xuất cưỡng bức bởi admin không
-
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
-}
-
-// Ghi lại mọi hành động quan trọng trong hệ thống để audit
-Table ActionLogs {
-  id                uuid        [pk, not null, unique]
-  userId            uuid        [ref: > Users.id]                     // Người thực hiện hành động
-  actionType        varchar(100)                                       // Loại hành động: CREATE | UPDATE | DELETE | LOGIN | APPROVE | ...
-  entityName        varchar(50)                                        // Tên bảng/đối tượng bị tác động, VD: Contributions
-  entityId          uuid                                               // UUID của bản ghi bị tác động
-  oldValue          text                                               // Giá trị trước thay đổi (JSON string)
-  newValue          text                                               // Giá trị sau thay đổi (JSON string)
-  ipAddress         varchar(50)                                        // Địa chỉ IP của người dùng
-  userAgent         varchar(500)                                       // Thông tin trình duyệt / thiết bị
-
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
-}
-
-// Kho lưu trữ file upload tập trung cho toàn hệ thống
 Table FileArchivals {
-  id                uuid        [pk, not null, unique]
-  fileName          varchar(255)                                       // Tên file gốc khi upload
-  fileUrl           varchar(500)                                       // URL truy cập file (CDN hoặc storage)
-  fileType          varchar(50)                                        // Loại file: image | video | audio | pdf | docx | spreadsheet
-  fileSizeBytes     bigint                                             // Dung lượng file tính bằng byte
-  extension         varchar(10)                                        // Đuôi mở rộng, VD: jpg | png | pdf
-  mimeType          varchar(100)                                       // MIME type, VD: image/jpeg | application/pdf
-  relatedId         uuid                                               // UUID của bản ghi sử dụng file này
-  moduleType        varchar(50)                                        // Module sử dụng, VD: member | contribution | receipt
-  storageProvider   varchar(50)                                        // Nhà cung cấp lưu trữ: s3 | gcs | local | cloudinary
-  storagePath       varchar(500)                                       // Đường dẫn nội bộ trên storage (bucket/path)
-  checksum          varchar(64)                                        // Hash SHA-256 để kiểm tra toàn vẹn file
-  uploadedBy        uuid        [ref: > Users.id]                     // Người đã upload file
+  id              uuid         [pk, not null, unique]
+  fileName        varchar(255)
+  fileUrl         varchar(500)
+  fileType        varchar(20)
+  fileSizeBytes   bigint
+  extension       varchar(10)
+  mimeType        varchar(100)
+  moduleType      varchar(50)  // member_qr | contribution_proof | disbursement_proof | avatar
+  storageProvider varchar(30)
+  storagePath     varchar(500)
+  uploadedBy      uuid         [ref: > Users.id]
 
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
+  isDeleted       bool         [default: false]
+  createdAt       datetime     [default: `now()`]
+  createdBy       uuid
+  updatedAt       datetime
+  updatedBy       uuid
 }
 
-// Cấu hình hệ thống theo key-value, thay đổi mà không cần deploy lại
-Table SystemConfigs {
-  id                uuid        [pk, not null, unique]
-  key               varchar(100)[unique]                               // Khóa cấu hình, VD: MAX_RECEIPT_PER_CYCLE | LATE_FEE_RATE
-  value             text                                               // Giá trị cấu hình (lưu dạng string, parse phía app)
-  dataType          varchar(20) [default: 'string']                   // Kiểu dữ liệu: string | number | boolean | json
-  description       text                                               // Mô tả ý nghĩa và tác động của cấu hình này
-  category          varchar(50)                                        // Nhóm cấu hình, VD: fund | notification | security | payment
-  isPublic          bool        [default: false]                       // Có thể expose ra client không (true = frontend có thể đọc)
-  lastChangedBy     uuid        [ref: > Users.id]                     // Admin thực hiện thay đổi gần nhất
+Table LoginLogs {
+  id          uuid         [pk, not null, unique]
+  userId      uuid         [ref: > Users.id]
+  status      varchar(20)
+  failReason  varchar(100)
+  ipAddress   varchar(50)
+  userAgent   varchar(500)
+  deviceType  varchar(20)
+  loggedInAt  datetime
 
-  isDeleted         bool        [default: false]
-  createdAt         datetime    [default: `now()`]
-  createdBy         uuid
-  updatedAt         datetime
-  updatedBy         uuid
+  isDeleted   bool         [default: false]
+  createdAt   datetime     [default: `now()`]
+  createdBy   uuid
+  updatedAt   datetime
+  updatedBy   uuid
+}
+
+Table ActionLogs {
+  id          uuid         [pk, not null, unique]
+  userId      uuid         [ref: > Users.id]
+  actionType  varchar(100)
+  entityName  varchar(50)
+  entityId    uuid
+  oldValue    text
+  newValue    text
+  ipAddress   varchar(50)
+  userAgent   varchar(500)
+  description text
+
+  isDeleted   bool         [default: false]
+  createdAt   datetime     [default: `now()`]
+  createdBy   uuid
+  updatedAt   datetime
+  updatedBy   uuid
+}
+
+// Biến cấu hình (Mở rộng thêm cấu hình liên quan đến Job Sinh Nhật)
+Table SystemConfigs {
+  id            uuid         [pk, not null, unique]
+  key           varchar(100) [unique] // Thêm các key: 
+                                      // - BIRTHDAY_REMIND_BEFORE_DAYS (Báo trước bao nhiêu ngày)
+                                      // - SMS_BRANDNAME_ENABLED (Có bật sms không)
+                                      // - MOMO_ENABLED...
+  value         text
+  dataType      varchar(20)  [default: 'string']
+  description   text
+  category      varchar(50)           // fund | notification | payment | birthday | security
+  isPublic      bool         [default: false]
+  lastChangedBy uuid         [ref: > Users.id]
+
+  isDeleted     bool         [default: false]
+  createdAt     datetime     [default: `now()`]
+  createdBy     uuid
+  updatedAt     datetime
+  updatedBy     uuid
 }

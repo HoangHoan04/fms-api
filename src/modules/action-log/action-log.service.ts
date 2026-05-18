@@ -1,6 +1,6 @@
-import { PaginationDto } from '@/dto';
+import { IdDto, PaginationDto } from '@/dto';
 import { ActionLogEntity } from '@/entities';
-import { transformKeys } from '@/helpers';
+import { transformKeys } from '@/helpers/objectHelper';
 import { ActionLogRepository } from '@/repositories';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { FindOptionsWhere } from 'typeorm';
@@ -11,49 +11,48 @@ import { ActionLogCreateDto } from './dto';
 export class ActionLogService {
   constructor(private repo: ActionLogRepository) {}
 
-  async create(dto: ActionLogCreateDto): Promise<void> {
+  async create(dto: ActionLogCreateDto) {
     const actionLog = new ActionLogEntity();
     actionLog.id = uuidv4();
+    actionLog.userId = dto.userId;
     actionLog.actionType = dto.actionType;
     actionLog.entityName = dto.entityName;
     actionLog.entityId = dto.entityId;
-    actionLog.createdById = dto.createdById;
-    actionLog.createdByCode = dto.createdByCode;
-    actionLog.createdByName = dto.createdByName;
-    actionLog.createdNote = dto.createdNote;
     actionLog.oldValue = dto.oldValue;
     actionLog.newValue = dto.newValue;
     actionLog.ipAddress = dto.ipAddress;
     actionLog.userAgent = dto.userAgent;
+    actionLog.description = dto.description;
     actionLog.createdAt = new Date();
-    actionLog.createdBy = dto.createdById;
+    actionLog.createdBy = dto.userId;
     await this.repo.save(actionLog);
   }
 
-  async createList(dtos: ActionLogCreateDto[]): Promise<void> {
+  async createList(dtos: ActionLogCreateDto[]) {
     const entities = dtos.map((dto) => {
       const actionLog = new ActionLogEntity();
       actionLog.id = uuidv4();
+      actionLog.userId = dto.userId;
       actionLog.actionType = dto.actionType;
       actionLog.entityName = dto.entityName;
       actionLog.entityId = dto.entityId;
-      actionLog.createdById = dto.createdById;
-      actionLog.createdByCode = dto.createdByCode;
-      actionLog.createdByName = dto.createdByName;
-      actionLog.createdNote = dto.createdNote;
       actionLog.oldValue = dto.oldValue;
       actionLog.newValue = dto.newValue;
       actionLog.ipAddress = dto.ipAddress;
       actionLog.userAgent = dto.userAgent;
+      actionLog.description = dto.description;
       actionLog.createdAt = new Date();
-      actionLog.createdBy = dto.createdById;
+      actionLog.createdBy = dto.userId;
       return actionLog;
     });
     await this.repo.save(entities);
   }
 
-  async findById(id: string) {
-    const result = await this.repo.findOne({ where: { id } });
+  async findById(data: IdDto) {
+    const result = await this.repo.findOne({
+      where: { id: data.id },
+      relations: { user: true },
+    });
     if (!result) throw new NotFoundException('Không tìm thấy log');
     return { message: 'Tìm kiếm thành công', data: result };
   }
@@ -65,13 +64,14 @@ export class ActionLogService {
     if (where?.entityName) whereCon.entityName = where.entityName;
     if (where?.entityId) whereCon.entityId = where.entityId;
     if (where?.actionType) whereCon.actionType = where.actionType;
-    if (where?.createdById) whereCon.createdById = where.createdById;
+    if (where?.userId) whereCon.userId = where.userId;
 
     const [items, total] = await this.repo.findAndCount({
       where: whereCon,
       skip,
       take,
       order: { createdAt: 'DESC' },
+      relations: { user: true },
     });
     const result = transformKeys(items);
 

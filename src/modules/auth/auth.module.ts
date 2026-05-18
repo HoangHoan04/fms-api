@@ -10,17 +10,13 @@ import {
   MemberRepository,
   PermissionRepository,
   RolePermissionRepository,
-  UserPermissionRepository,
   UserRepository,
-  VerifyOtpRepository,
 } from '@/repositories';
-import { OtpService } from '@/services/otp.service';
 import { TypeOrmExModule } from '@/typeorm';
-import { EmailModule } from '../email/email.module';
 import { FileArchivalModule } from '../file-archival/file-archival.module';
 import { NotifyModule } from '../notify/notify.module';
-import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AuthController } from './controllers/auth-admin.controller';
 import { JwtStrategy } from './jwt.strategy';
 
 @Module({
@@ -41,18 +37,16 @@ import { JwtStrategy } from './jwt.strategy';
       MemberRepository,
       FileArchivalRepository,
       LoginLogRepository,
-      VerifyOtpRepository,
       PermissionRepository,
       RolePermissionRepository,
-      UserPermissionRepository,
     ]),
     HttpModule,
     FileArchivalModule,
-    EmailModule,
+    // EmailModule,
     NotifyModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, OtpService],
+  providers: [AuthService, JwtStrategy],
   exports: [AuthService, JwtStrategy, PassportModule],
 })
 export class AuthModule {}

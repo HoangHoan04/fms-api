@@ -3,31 +3,43 @@ import { Column, Entity, Index, OneToMany } from 'typeorm';
 import { BaseEntity } from '../base.entity';
 import { NotificationEntity } from './notification.entity';
 
-/** Mẫu thông báo dùng để tái sử dụng nội dung theo sự kiện */
 @Entity('notification-templates')
 export class NotificationTemplateEntity extends BaseEntity {
-  /** Mã mẫu, VD: CONTRIBUTION_REMINDER | RECEIPT_APPROVED */
+  @ApiProperty({
+    description:
+      'Mã mẫu: UPCOMING_BIRTHDAY, BIRTHDAY_CONGRATS, CONTRIBUTION_OPENED, ...',
+  })
   @Index({ unique: true })
   @Column({ type: 'varchar', length: 100, unique: true })
   code: string;
 
-  /** Tiêu đề mẫu thông báo (có thể chứa biến {{name}}) */
+  @ApiProperty({ description: 'Tên hiển thị gợi nhớ' })
+  @Column({ type: 'varchar', length: 255 })
+  name: string;
+
+  @ApiProperty({ description: 'Tiêu đề mẫu (có placeholders)' })
   @Column({ type: 'varchar', length: 255 })
   title: string;
 
-  /** Nội dung mẫu (hỗ trợ biến động {{amount}}, {{cycle}}, ...) */
+  @ApiProperty({ description: 'Nội dung mẫu (có placeholders)' })
   @Column({ type: 'text', nullable: true })
   body?: string;
 
-  /** Kênh gửi mặc định: email | sms | push | all */
+  @ApiProperty({
+    description:
+      'Kênh gửi mặc định: email | zalo | sms | in_app | broadcast_group',
+  })
   @Column({ type: 'varchar', length: 50, nullable: true })
   channel?: string;
 
-  /** Loại sự kiện kích hoạt mẫu này */
+  @ApiProperty({ description: 'Loại sự kiện kích hoạt mẫu này' })
   @Column({ type: 'varchar', length: 100, nullable: true })
   eventType?: string;
 
-  // Relations
+  @ApiProperty({ description: 'Bật/tắt mẫu thông báo này' })
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
+
   @OneToMany(() => NotificationEntity, (n) => n.template)
   notifications: NotificationEntity[];
 }

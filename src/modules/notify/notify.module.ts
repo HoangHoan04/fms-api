@@ -5,7 +5,7 @@ import {
   NotificationTemplateRepository,
   UserRepository,
 } from '@/repositories';
-import { NotifyController } from './notify.controller';
+import { NotifyController } from './controllers/notify-admin.controller';
 import { NotifyService } from './notify.service';
 
 @Module({

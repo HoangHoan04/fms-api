@@ -1,63 +1,75 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { BaseEntity } from '../base.entity';
-import { UserEntity } from '../users/user.entity';
 import { NotificationTemplateEntity } from './notification-template.entity';
+import { UserEntity } from '../users/user.entity';
 
-/** Bản ghi thông báo thực tế gửi đến người dùng */
 @Entity('notifications')
 export class NotificationEntity extends BaseEntity {
-  /** Người nhận thông báo */
-  @Column({ type: 'uuid' })
-  userId: string;
-  @ManyToOne(() => UserEntity)
-  @JoinColumn({ name: 'userId' })
-  user: UserEntity;
-
-  /** Mẫu thông báo đã dùng (null nếu tạo thủ công) */
+  @ApiProperty({ description: 'ID mẫu thông báo (null nếu tạo thủ công)' })
   @Column({ type: 'uuid', nullable: true })
   templateId?: string;
   @ManyToOne(() => NotificationTemplateEntity, (nt) => nt.notifications)
   @JoinColumn({ name: 'templateId' })
   template?: NotificationTemplateEntity;
 
-  /** Tiêu đề sau khi đã thay biến */
+  @ApiProperty({ description: 'Loại nhận: personal | group_broadcast' })
+  @Column({ type: 'varchar', length: 20, default: 'personal' })
+  recipientType: string;
+
+  @ApiProperty({ description: 'ID người nhận (null nếu group_broadcast)' })
+  @Column({ type: 'uuid', nullable: true })
+  userId?: string;
+  @ManyToOne(() => UserEntity)
+  @JoinColumn({ name: 'userId' })
+  user?: UserEntity;
+
+  @ApiProperty({ description: 'Tiêu đề sau khi đã thay biến' })
   @Column({ type: 'varchar', length: 255 })
   title: string;
 
-  /** Nội dung sau khi đã thay biến */
+  @ApiProperty({ description: 'Nội dung sau khi đã thay biến' })
   @Column({ type: 'text', nullable: true })
   body?: string;
 
-  /** Dữ liệu bổ sung: {"receiptId": "...", "cycleId": "..."} */
+  @ApiProperty({ description: 'Dữ liệu bổ sung' })
   @Column({ type: 'jsonb', nullable: true })
   payload?: Record<string, any>;
 
-  /** Kênh đã gửi: email | sms | push */
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  channel?: string;
+  @ApiProperty({ description: 'Kênh gửi: email | zalo | sms | in_app' })
+  @Column({ type: 'varchar', length: 20 })
+  channel: string;
 
-  /** Người dùng đã đọc chưa */
+  @ApiProperty({ description: 'Đã đọc chưa' })
   @Column({ type: 'boolean', default: false })
   isRead: boolean;
 
-  /** Thời điểm đọc */
+  @ApiProperty({ description: 'Thời điểm đọc' })
   @Column({ type: 'timestamptz', nullable: true })
   readAt?: Date;
 
-  /** Thời điểm gửi thực tế */
+  @ApiProperty({
+    description: 'Trạng thái: pending | processing | sent | failed',
+  })
+  @Column({ type: 'varchar', length: 20, default: 'pending' })
+  status: string;
+
+  @ApiProperty({ description: 'Thời điểm gửi thành công' })
   @Column({ type: 'timestamptz', nullable: true })
   sentAt?: Date;
 
-  /** Lý do thất bại nếu gửi không thành công */
+  @ApiProperty({ description: 'Lý do thất bại nếu có' })
   @Column({ type: 'text', nullable: true })
   failReason?: string;
 
-  /** Loại đối tượng liên quan: FundReceipt | Contribution | FundCycle */
+  @ApiProperty({
+    description:
+      'Loại đối tượng liên quan: Member | Cycle | Contribution | Disbursement',
+  })
   @Column({ type: 'varchar', length: 50, nullable: true })
   relatedEntityType?: string;
 
-  /** UUID của đối tượng liên quan (để deep-link) */
+  @ApiProperty({ description: 'ID đối tượng liên quan' })
   @Column({ type: 'uuid', nullable: true })
   relatedEntityId?: string;
 }

@@ -1,2 +1,5 @@
-export * from './member-bank-account.dto';
-export * from './member.dto';
+export class CreateMemberDto {}
+
+export class UpdateMemberDto extends CreateMemberDto {}
+
+export class FilterMemberDto {}

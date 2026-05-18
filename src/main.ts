@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { json, urlencoded } from 'express';
-import { AppModule } from './modules/app.module';
+import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters';
 
 async function bootstrap() {
@@ -21,7 +21,7 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
 
   const options = new DocumentBuilder()
-    .setTitle('Fms API')
+    .setTitle('LingoArena API')
     .setVersion('1.0.0')
     .addBearerAuth()
     .build();

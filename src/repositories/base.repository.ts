@@ -1,6 +1,7 @@
 import {
   ActionLogEntity,
   FileArchivalEntity,
+  LoginLogEntity,
   SystemConfigEntity,
 } from '@/entities';
 import { CustomRepository } from '@/typeorm';
@@ -14,3 +15,6 @@ export class FileArchivalRepository extends Repository<FileArchivalEntity> {}
 
 @CustomRepository(SystemConfigEntity)
 export class SystemConfigRepository extends Repository<SystemConfigEntity> {}
+
+@CustomRepository(LoginLogEntity)
+export class LoginLogRepository extends Repository<LoginLogEntity> {}

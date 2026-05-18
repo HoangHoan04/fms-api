@@ -1,36 +1,23 @@
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { transformer } from '../../helpers';
 import { BaseEntity } from '../base.entity';
+import { CycleEntity } from './cycle.entity';
 import { UserEntity } from '../users/user.entity';
-import { FundCycleEntity } from './fund-cycle.entity';
-import { FundEntity } from './fund.entity';
 
-/** Sổ thu chi – ghi nhận mọi dòng tiền vào/ra của quỹ */
 @Entity('fund-transactions')
 export class FundTransactionEntity extends BaseEntity {
-  /** Quỹ liên quan */
   @Column({ type: 'uuid' })
-  fundId: string;
-  @ManyToOne(() => FundEntity, (f) => f.fundTransactions)
-  @JoinColumn({ name: 'fundId' })
-  fund: FundEntity;
-
-  /** Chu kỳ liên quan (null nếu giao dịch ngoài kỳ) */
-  @Column({ type: 'uuid', nullable: true })
-  cycleId?: string;
-  @ManyToOne(() => FundCycleEntity)
+  cycleId: string;
+  @ManyToOne(() => CycleEntity)
   @JoinColumn({ name: 'cycleId' })
-  cycle?: FundCycleEntity;
+  cycle: CycleEntity;
 
-  /** Loại: contribution | disbursement | fee | adjustment | refund */
-  @Column({ type: 'varchar', length: 50 })
+  @Column({ type: 'varchar', length: 30 })
   transactionType: string;
 
-  /** Chiều: in (thu vào) | out (chi ra) */
   @Column({ type: 'varchar', length: 10 })
   direction: string;
 
-  /** Số tiền giao dịch */
   @Column({
     type: 'decimal',
     precision: 18,
@@ -39,7 +26,6 @@ export class FundTransactionEntity extends BaseEntity {
   })
   amount: number;
 
-  /** Số dư trước giao dịch */
   @Column({
     type: 'decimal',
     precision: 18,
@@ -49,7 +35,6 @@ export class FundTransactionEntity extends BaseEntity {
   })
   balanceBefore?: number;
 
-  /** Số dư sau giao dịch */
   @Column({
     type: 'decimal',
     precision: 18,
@@ -59,23 +44,18 @@ export class FundTransactionEntity extends BaseEntity {
   })
   balanceAfter?: number;
 
-  /** UUID tham chiếu (Contribution.id hoặc Disbursement.id) */
   @Column({ type: 'uuid', nullable: true })
   relatedId?: string;
 
-  /** Loại đối tượng tham chiếu */
   @Column({ type: 'varchar', length: 50, nullable: true })
   relatedType?: string;
 
-  /** Ngày giao dịch */
   @Column({ type: 'date', nullable: true })
   transactionDate?: Date;
 
-  /** Mô tả giao dịch */
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  /** Người thực hiện / xác nhận giao dịch */
   @Column({ type: 'uuid', nullable: true })
   performedBy?: string;
   @ManyToOne(() => UserEntity)

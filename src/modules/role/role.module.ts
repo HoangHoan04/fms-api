@@ -4,7 +4,7 @@ import {
   RoleRepository,
   RolePermissionRepository,
 } from '@/repositories/user.repository';
-import { RoleController } from './role.controller';
+import { RoleController } from './controllers/role-addmin.controller';
 import { RoleService } from './role.service';
 import { ActionLogModule } from '../action-log/action-log.module';
 

@@ -1,76 +1,102 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  Column,
-  Entity,
-  Index,
-  JoinColumn,
-  OneToMany,
-  OneToOne,
-} from 'typeorm';
-import { UserEntity } from '.';
-import { FileArchivalEntity } from '..';
+import { Column, Entity, Index, JoinColumn, OneToOne } from 'typeorm';
 import { BaseEntity } from '../base.entity';
-import { MemberBankAccountEntity } from './member-bank-account.entity';
+import { FileArchivalEntity } from '../file-archival.entity';
+import { UserEntity } from './user.entity';
 
-/** Hồ sơ thành viên tham gia quỹ nhóm */
 @Entity('members')
 export class MemberEntity extends BaseEntity {
-  /** Liên kết tài khoản đăng nhập (1-1, có thể null nếu nhập tay) */
-  @ApiProperty({ description: 'ID tài khoản người dùng liên kết (nếu có)' })
+  @ApiProperty({
+    description:
+      'ID tài khoản người dùng liên kết (null nếu admin nhập tay profile trước)',
+  })
   @Column({ type: 'uuid', nullable: true })
-  userId: string;
+  userId?: string;
   @OneToOne(() => UserEntity, (user) => user.member)
   @JoinColumn({ name: 'userId' })
-  user: UserEntity;
+  user?: UserEntity;
 
-  /** Mã thành viên, VD: MBR-0001 */
-  @ApiProperty({ description: 'Mã thành viên, VD: MBR-0001' })
+  @ApiProperty({ description: 'Mã thành viên: MBR-0001 → MBR-0020' })
   @Index({ unique: true })
-  @Column({ type: 'varchar', length: 50, nullable: true, unique: true })
+  @Column({ type: 'varchar', length: 50, unique: true })
   code: string;
 
-  /** Họ tên đầy đủ */
-  @ApiProperty({ description: 'Họ tên đầy đủ của thành viên' })
-  @Column({ type: 'varchar', length: 100, nullable: true })
+  @ApiProperty({ description: 'Họ tên đầy đủ' })
+  @Column({ type: 'varchar', length: 100 })
   fullName: string;
 
-  /** Tên gọi ngắn / biệt danh */
-  @ApiProperty({ description: 'Tên gọi ngắn hoặc biệt danh của thành viên' })
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  shortName?: string;
+  @ApiProperty({ description: 'Biệt danh gọi trong nhóm' })
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  nickname?: string;
 
-  /** Email liên hệ */
-  @ApiProperty({ description: 'Email liên hệ của thành viên' })
+  @ApiProperty({
+    description: 'Ngày sinh nhật - dùng để quét chạy CronJob tự động',
+  })
+  @Column({ type: 'date' })
+  birthday: Date;
+
+  @ApiProperty({ description: 'Email nhận thông báo' })
   @Index({ unique: true })
-  @Column({ type: 'varchar', length: 255, nullable: true, unique: true })
+  @Column({ type: 'varchar', length: 255, unique: true })
   email: string;
 
-  /** Số điện thoại */
-  @ApiProperty({ description: 'Số điện thoại liên hệ của thành viên' })
+  @ApiProperty({ description: 'Số điện thoại nhận tin SMS hoặc MoMo' })
   @Column({ type: 'varchar', length: 20, nullable: true })
-  phone: string;
+  phone?: string;
 
-  /** Giới tính: Male | Female | Other */
-  @ApiProperty({ description: 'Giới tính của thành viên' })
+  @ApiProperty({ description: 'Số điện thoại đăng ký Zalo' })
   @Column({ type: 'varchar', length: 20, nullable: true })
-  gender?: string;
+  zaloPhone?: string;
 
-  /** Ngày sinh */
-  @ApiProperty({ description: 'Ngày sinh của thành viên' })
+  @ApiProperty({
+    description: 'Zalo User ID nhận tin nhắn trực tiếp qua Official Account',
+  })
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  zaloUserId?: string;
+
+  @ApiProperty({ description: 'Số điện thoại MoMo' })
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  momoPhone?: string;
+
+  @ApiProperty({ description: 'Tên ngân hàng' })
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  bankName?: string;
+
+  @ApiProperty({ description: 'Số tài khoản ngân hàng' })
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  bankAccountNo?: string;
+
+  @ApiProperty({ description: 'Tên chủ tài khoản ngân hàng' })
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  bankAccountName?: string;
+
+  @ApiProperty({ description: 'ID ảnh QR code ngân hàng' })
+  @Column({ type: 'uuid', nullable: true })
+  qrCodeFileId?: string;
+  @OneToOne(() => FileArchivalEntity)
+  @JoinColumn({ name: 'qrCodeFileId' })
+  qrCodeFile?: FileArchivalEntity;
+
+  @ApiProperty({ description: 'ID ảnh đại diện' })
+  @Column({ type: 'uuid', nullable: true })
+  avatarFileId?: string;
+  @OneToOne(() => FileArchivalEntity)
+  @JoinColumn({ name: 'avatarFileId' })
+  avatarFile?: FileArchivalEntity;
+
+  @ApiProperty({ description: 'Thứ tự danh sách trong nhóm hụi (1 -> 20)' })
+  @Column({ type: 'int' })
+  orderIndex: number;
+
+  @ApiProperty({ description: 'Ngày tham gia nhóm hụi' })
   @Column({ type: 'date', nullable: true })
-  birthday?: Date;
+  joinDate?: Date;
 
-  /** Ghi chú thêm về thành viên */
-  @ApiProperty({ description: 'Ghi chú thêm về thành viên' })
+  @ApiProperty({ description: 'Ghi chú riêng' })
   @Column({ type: 'text', nullable: true })
-  description?: string;
+  note?: string;
 
-  /** Danh sách tài khoản ngân hàng */
-  @OneToMany(() => MemberBankAccountEntity, (p) => p.member)
-  bankAccounts: MemberBankAccountEntity[];
-
-  /** Ảnh đại diện */
-  @ApiProperty({ description: 'URL avatar của thành viên' })
-  @OneToMany(() => FileArchivalEntity, (p) => p.member)
-  avatar: Promise<FileArchivalEntity[]>;
+  @ApiProperty({ description: 'Trạng thái: active | inactive | left' })
+  @Column({ type: 'varchar', length: 20, default: 'active' })
+  status: string;
 }

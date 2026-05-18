@@ -1,12 +1,11 @@
-import { Module } from '@nestjs/common';
-import { TypeOrmExModule } from '@/typeorm';
 import { LoginLogRepository } from '@/repositories';
-import { LoginLogController } from './login-log.controller';
+import { TypeOrmExModule } from '@/typeorm';
+import { Module } from '@nestjs/common';
 import { LoginLogService } from './login-log.service';
 
 @Module({
   imports: [TypeOrmExModule.forCustomRepository([LoginLogRepository])],
-  controllers: [LoginLogController],
+  controllers: [],
   providers: [LoginLogService],
   exports: [LoginLogService],
 })

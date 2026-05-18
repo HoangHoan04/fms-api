@@ -1,7 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
-import { RoleEntity, UserEntity } from '.';
 import { BaseEntity } from '../base.entity';
+import { UserEntity } from './user.entity';
+import { RoleEntity } from './role.entity';
 
 @Entity('user-roles')
 export class UserRoleEntity extends BaseEntity {
@@ -9,7 +10,7 @@ export class UserRoleEntity extends BaseEntity {
   @Column({ type: 'uuid' })
   userId: string;
 
-  @ApiProperty({ description: 'ID role' })
+  @ApiProperty({ description: 'ID vai trò' })
   @Column({ type: 'uuid' })
   roleId: string;
 

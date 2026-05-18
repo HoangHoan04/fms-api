@@ -6,7 +6,7 @@ import { PermissionEntity } from './permission.entity';
 
 @Entity('role-permissions')
 export class RolePermissionEntity extends BaseEntity {
-  @ApiProperty({ description: 'ID role' })
+  @ApiProperty({ description: 'ID vai trò' })
   @Column({ type: 'uuid' })
   roleId: string;
 
@@ -14,7 +14,6 @@ export class RolePermissionEntity extends BaseEntity {
   @Column({ type: 'uuid' })
   permissionId: string;
 
-  // Relations
   @ManyToOne(() => RoleEntity, (role) => role.rolePermissions)
   @JoinColumn({ name: 'roleId' })
   role: RoleEntity;

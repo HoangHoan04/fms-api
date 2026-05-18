@@ -1,69 +1,42 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Column, Entity, Index } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { BaseEntity } from './base.entity';
-import { enumData } from '@/common/contanst/enumData';
+import { UserEntity } from './users/user.entity';
 
 @Entity('system-configs')
 export class SystemConfigEntity extends BaseEntity {
-  /** Mã cấu hình */
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: false,
-    comment: 'Mã cấu hình',
-  })
-  code: string;
-
-  /** Tên cấu hình */
-  @Column({
-    type: 'varchar',
-    length: 250,
-    nullable: false,
-    comment: 'Tên cấu hình',
-  })
-  name: string;
-
-  /** Ghi chú */
-  @Column({ type: 'text', nullable: true, comment: 'Ghi chú' })
-  note: string;
-
-  /** loại dữ liệu */
-  @Column({
-    type: 'varchar',
-    length: 50,
-    nullable: false,
-    default: enumData.DataType.string.code,
-    comment: 'loại dữ liệu',
-  })
-  type: string;
-
-  /** Thiết lập dành cho */
-  @Column({
-    type: 'varchar',
-    length: 50,
-    nullable: true,
-    default: 'SYSTEM',
-    comment: 'Thiết lập dành cho',
-  })
-  settingTab: string;
-
-  @ApiProperty({ description: 'Khóa cấu hình (unique)' })
-  @Index({ unique: true })
+  @ApiProperty({ description: 'Khóa cấu hình duy nhất' })
   @Column({ type: 'varchar', length: 100, unique: true })
   key: string;
 
   @ApiProperty({ description: 'Giá trị cấu hình' })
-  @Column({ type: 'text', nullable: true })
-  value?: string;
+  @Column({ type: 'text' })
+  value: string;
+
+  @ApiProperty({
+    description: 'Kiểu dữ liệu: string | number | boolean | json',
+  })
+  @Column({ type: 'varchar', length: 20, default: 'string' })
+  dataType: string;
 
   @ApiProperty({ description: 'Mô tả cấu hình' })
   @Column({ type: 'text', nullable: true })
   description?: string;
 
   @ApiProperty({
-    description: 'Nhóm cấu hình',
-    enum: ['Arena', 'Exam', 'AI', 'Payment', 'General'],
+    description: 'Nhóm: fund | notification | payment | birthday | security',
   })
   @Column({ type: 'varchar', length: 50, nullable: true })
   category?: string;
+
+  @ApiProperty({ description: 'Có thể frontend đọc không' })
+  @Column({ type: 'boolean', default: false })
+  isPublic: boolean;
+
+  @ApiProperty({ description: 'Admin thay đổi gần nhất' })
+  @Column({ type: 'uuid', nullable: true })
+  lastChangedBy?: string;
+  @ManyToOne(() => UserEntity)
+  @JoinColumn({ name: 'lastChangedBy' })
+  lastChanger?: UserEntity;
 }

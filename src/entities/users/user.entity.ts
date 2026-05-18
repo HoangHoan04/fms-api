@@ -10,72 +10,61 @@ import {
   OneToMany,
   OneToOne,
 } from 'typeorm';
-import {
-  EmployeeEntity,
-  MemberEntity,
-  UserPermissionEntity,
-  UserRoleEntity,
-} from '.';
 import { BaseEntity } from '../base.entity';
+import { MemberEntity } from './member.entity';
+import { UserRoleEntity } from './user-role.entity';
 
 @Entity('users')
 export class UserEntity extends BaseEntity {
-  @ApiProperty({ description: 'Mã người dùng' })
+  @ApiProperty({ description: 'Mã định danh ngắn gọn (VD: USR-0001)' })
   @Index({ unique: true })
-  @Column({ type: 'varchar', length: 50, nullable: true, unique: true })
+  @Column({ type: 'varchar', length: 50, unique: true })
   code: string;
 
-  @ApiProperty({ description: 'Email' })
+  @ApiProperty({ description: 'Email đăng nhập' })
   @Index({ unique: true })
-  @Column({ type: 'varchar', length: 255, nullable: true, unique: true })
+  @Column({ type: 'varchar', length: 255, unique: true })
   email: string;
 
   @ApiProperty({ description: 'Tên đăng nhập' })
   @Index({ unique: true })
-  @Column({ type: 'varchar', length: 100, nullable: true, unique: true })
+  @Column({ type: 'varchar', length: 100, unique: true })
   username: string;
 
-  @ApiProperty({ description: 'Mật khẩu (đã hash)' })
+  @ApiProperty({ description: 'Mật khẩu đã hash' })
   @Column({ type: 'varchar', length: 255 })
   password: string;
 
   @ApiProperty({
-    description: 'Nhà cung cấp đăng nhập',
-    enum: ['local', 'google', 'facebook'],
+    description: 'Nhà cung cấp đăng nhập: local | google | facebook',
   })
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'varchar', length: 50, default: 'local' })
   loginProvider: string;
 
   @ApiProperty({ description: 'Google ID' })
   @Column({ type: 'varchar', length: 255, nullable: true })
-  googleId: string;
+  googleId?: string;
 
   @ApiProperty({ description: 'Facebook ID' })
   @Column({ type: 'varchar', length: 255, nullable: true })
-  facebookId: string;
+  facebookId?: string;
 
   @ApiProperty({ description: 'Đã xác thực email?' })
   @Column({ default: false })
   isVerified: boolean;
 
-  @ApiProperty({ description: 'Là admin?' })
+  @ApiProperty({ description: 'Là admin? (Hoàn hoặc phó nhóm)' })
   @Column({ default: false })
   isAdmin: boolean;
 
   @ApiProperty({ description: 'Lần đăng nhập cuối' })
   @Column({ type: 'timestamptz', nullable: true })
-  lastLoginAt: Date;
+  lastLoginAt?: Date;
 
-  @ApiProperty({ description: 'Tài khoản có đang hoạt động không' })
-  @Column({ type: 'boolean', default: true })
-  isActive: boolean;
-
-  @ApiProperty({ description: 'Refresh token đã mã hóa' })
+  @ApiProperty({ description: 'Token làm mới đã mã hóa' })
   @Column({ type: 'text' })
   refreshToken: string;
 
-  // Relations
-  @ApiProperty({ description: '' })
   @OneToMany(() => UserRoleEntity, (userRole) => userRole.user)
   userRoles: UserRoleEntity[];
 
@@ -84,18 +73,6 @@ export class UserEntity extends BaseEntity {
   @OneToOne(() => MemberEntity, (member) => member.user)
   @JoinColumn({ name: 'memberId' })
   member?: MemberEntity;
-
-  @Column({ type: 'uuid', nullable: true })
-  employeeId?: string;
-  @OneToOne(() => EmployeeEntity, (employee) => employee.user)
-  @JoinColumn({ name: 'employeeId' })
-  employee?: EmployeeEntity;
-
-  @OneToMany(
-    () => UserPermissionEntity,
-    (userPermission) => userPermission.user,
-  )
-  userPermissions: UserPermissionEntity[];
 
   @BeforeInsert()
   async hashPasswordBeforeInsert() {
